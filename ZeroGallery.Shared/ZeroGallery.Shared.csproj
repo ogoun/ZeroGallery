@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.6.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.9" />
+    <PackageReference Include="SkiaSharp" Version="3.119.0" />
+    <PackageReference Include="sqlite-net-static" Version="1.9.172" />
+    <PackageReference Include="Svg.Skia" Version="3.0.3" />
+    <PackageReference Include="ZeroLevel" Version="4.0.0.3" />
+  </ItemGroup>
+
+</Project>

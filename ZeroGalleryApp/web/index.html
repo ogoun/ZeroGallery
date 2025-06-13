@@ -1,0 +1,1584 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZeroGallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #141414;
+            --bg-tertiary: #1f1f1f;
+            --bg-hover: #2a2a2a;
+            --text-primary: #ffffff;
+            --text-secondary: #888888;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.2);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.12);
+            --success: #10b981;
+            --error: #ef4444;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Layout Container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+            transition: var(--transition);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            padding: 0 1rem;
+            height: 100%;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            flex-shrink: 0;
+        }
+
+        .upload-token-wrapper {
+            flex: 1;
+            max-width: 300px;
+            min-width: 200px;
+        }
+
+        .upload-token-input {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+
+            .upload-token-input:focus {
+                outline: none;
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-glow);
+            }
+
+            .upload-token-input::placeholder {
+                color: var(--text-secondary);
+            }
+
+        /* Upload Area */
+        .upload-area-container {
+            position: fixed;
+            bottom: 0;
+            left: 320px;
+            right: 0;
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            padding: 1rem 2rem;
+            z-index: 50;
+            transition: var(--transition);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            text-align: center;
+            transition: var(--transition);
+            cursor: pointer;
+            background: var(--bg-tertiary);
+            position: relative;
+            overflow: hidden;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+            .upload-area::before {
+                content: '';
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                pointer-events: none;
+            }
+
+            .upload-area.drag-over {
+                border-color: var(--accent);
+                background: var(--bg-hover);
+            }
+
+                .upload-area.drag-over::before {
+                    opacity: 1;
+                }
+
+            .upload-area p {
+                color: var(--text-secondary);
+                font-size: 0.875rem;
+                margin: 0;
+            }
+
+        .upload-area-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.5;
+        }
+
+        .upload-input {
+            display: none;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0 1rem 5rem;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 90;
+            transition: transform 0.3s ease;
+            padding-top: calc(60px + 2rem);
+        }
+
+        /* Mobile Menu Toggle */
+        .mobile-menu-toggle {
+            display: none;
+            position: fixed;
+            top: 0.75rem;
+            left: 1rem;
+            width: 3rem;
+            height: 3rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.25rem;
+            cursor: pointer;
+            z-index: 110;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+            .mobile-menu-toggle:hover {
+                background: var(--accent-hover);
+                transform: scale(1.05);
+            }
+
+        /* Albums Section */
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            padding: 0 0.5rem;
+        }
+
+        .no-album-tile {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+            .no-album-tile:hover {
+                background: var(--bg-hover);
+                border-color: var(--border-hover);
+                transform: translateX(4px);
+            }
+
+            .no-album-tile.active {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: white;
+            }
+
+        .albums-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .album-tile {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            aspect-ratio: 1;
+        }
+
+            .album-tile:hover {
+                transform: translateY(-4px);
+                box-shadow: var(--shadow-lg);
+                border-color: var(--border-hover);
+            }
+
+            .album-tile.active {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 2px var(--accent);
+            }
+
+        .album-tile-image {
+            width: 100%;
+            height: 70%;
+            object-fit: cover;
+            background: var(--bg-hover);
+        }
+
+        .album-tile-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 0.75rem;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+        }
+
+        .album-tile-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .lock-icon {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+        }
+
+        .add-album-btn {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            right: 1rem;
+            padding: 1rem;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: var(--transition);
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+            .add-album-btn:hover {
+                background: var(--accent-hover);
+                transform: translateY(-2px);
+                box-shadow: var(--shadow-lg);
+            }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 320px;
+            padding: calc(60px + 2rem) 2rem 120px;
+            min-height: 100vh;
+            background: var(--bg-primary);
+            position: relative;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1.5rem;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .viewer-modal .viewer-content img,
+        .viewer-modal .viewer-content video {
+            animation: fadeInScale 0.3s ease;
+        }
+
+        .gallery-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+        }
+
+            .gallery-item:hover {
+                transform: translateY(-4px);
+                box-shadow: var(--shadow-lg);
+                border-color: var(--border-hover);
+            }
+
+        .gallery-item-preview {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: var(--bg-tertiary);
+        }
+
+        .gallery-item-info {
+            padding: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .gallery-item-name {
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .gallery-item-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .action-btn {
+            flex: 1;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 2.5rem;
+        }
+
+            .action-btn:hover {
+                background: var(--accent);
+                border-color: var(--accent);
+                transform: scale(1.05);
+            }
+
+            .action-btn:active {
+                transform: scale(0.95);
+            }
+
+            .action-btn svg {
+                width: 20px;
+                height: 20px;
+                stroke-width: 2;
+            }
+
+        .download-btn {
+            width: 100%;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+            .download-btn:hover {
+                background: var(--accent);
+                border-color: var(--accent);
+                transform: scale(1.02);
+            }
+
+        /* Modal Base */
+        .modal {
+            display: none !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+            .modal.show {
+                display: block !important;
+            }
+
+        .modal-content {
+            position: relative;
+            margin: 2rem auto;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 2rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            max-width: 500px;
+            width: 100%;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+
+            .modal-close:hover {
+                color: var(--text-primary);
+                background: var(--bg-hover);
+                transform: rotate(90deg);
+            }
+
+        .modal h3 {
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .modal-field {
+            margin-bottom: 1.25rem;
+        }
+
+        .modal-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+
+            .modal input:focus {
+                outline: none;
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-glow);
+            }
+
+            .modal input::placeholder {
+                color: var(--text-secondary);
+            }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .modal button {
+            flex: 1;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+            .modal button:hover {
+                background: var(--accent-hover);
+                transform: translateY(-2px);
+                box-shadow: var(--shadow);
+            }
+
+            .modal button.secondary {
+                background: var(--bg-tertiary);
+                color: var(--text-primary);
+            }
+
+                .modal button.secondary:hover {
+                    background: var(--bg-hover);
+                }
+
+        /* Viewer Modal */
+        .viewer-modal {
+            padding: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+            .viewer-modal .modal-content {
+                max-width: 95vw;
+                max-height: 95vh;
+                padding: 0;
+                background: transparent;
+                border: none;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                cursor: default;
+            }
+
+        .viewer-close-btn {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            width: 3rem;
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            cursor: pointer;
+            color: white;
+            transition: var(--transition);
+            z-index: 1001;
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+
+            .viewer-close-btn:hover {
+                background: rgba(0, 0, 0, 0.9);
+                color: white;
+                transform: scale(1.1) rotate(90deg);
+                border-color: rgba(255, 255, 255, 0.2);
+            }
+
+            .viewer-close-btn:active {
+                transform: scale(0.95) rotate(90deg);
+            }
+
+        .viewer-content {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+
+            .viewer-content img,
+            .viewer-content video {
+                max-width: 100%;
+                max-height: 85vh;
+                border-radius: var(--radius);
+                box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+                background: var(--bg-secondary);
+            }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-sm);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 500;
+            animation: slideInRight 0.3s ease;
+            z-index: 2000;
+            box-shadow: var(--shadow-lg);
+            max-width: 320px;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            background: var(--success);
+        }
+
+        .notification.error {
+            background: var(--error);
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            opacity: 0.2;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state-text {
+            font-size: 1.125rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state-hint {
+            font-size: 0.875rem;
+            opacity: 0.7;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+                top: 0;
+            }
+
+                .sidebar.active {
+                    transform: translateX(0);
+                }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .upload-area-container {
+                left: 0;
+            }
+
+            .mobile-menu-toggle {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                gap: 1rem;
+                padding-left: 3.5rem;
+            }
+
+            .logo {
+                font-size: 1.25rem;
+            }
+
+            .upload-area-container {
+                padding: 1rem;
+            }
+
+            .upload-area {
+                padding: 1.25rem;
+            }
+
+            .main-content {
+                padding: calc(60px + 1rem) 1rem 100px;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 1rem;
+            }
+
+            .gallery-item-preview {
+                height: 150px;
+            }
+
+            .viewer-close-btn {
+                top: 1rem;
+                right: 1rem;
+                width: 2.5rem;
+                height: 2.5rem;
+                font-size: 1.25rem;
+            }
+
+            .modal-content {
+                margin: 1rem auto;
+                padding: 1.5rem;
+            }
+
+            .notification {
+                bottom: 1rem;
+                right: 1rem;
+                left: 1rem;
+                max-width: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .upload-token-wrapper {
+                flex: 1 1 100%;
+                max-width: none;
+            }
+
+            .upload-area {
+                padding: 1rem;
+            }
+
+                .upload-area p {
+                    font-size: 0.75rem;
+                }
+
+            .albums-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 0.75rem;
+            }
+
+            .gallery-item-preview {
+                height: 120px;
+            }
+
+            .gallery-item-info {
+                padding: 0.75rem;
+            }
+
+            .gallery-item-name {
+                font-size: 0.75rem;
+            }
+
+            .viewer-modal {
+                padding: 0.5rem;
+            }
+
+            .viewer-content img,
+            .viewer-content video {
+                max-height: 90vh;
+                border-radius: var(--radius-sm);
+            }
+
+            .modal h3 {
+                font-size: 1.125rem;
+            }
+        }
+
+        /* Dark scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-hover);
+            border-radius: 4px;
+        }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: var(--text-secondary);
+            }
+
+        .sidebar-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* Focus visible */
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">ZeroGallery</h1>
+                <div class="upload-token-wrapper">
+                    <input type="password"
+                           class="upload-token-input"
+                           placeholder="Токен загрузки"
+                           id="uploadToken"
+                           autocomplete="off">
+                </div>
+            </div>
+        </header>
+
+        <!-- Mobile Menu Toggle -->
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Меню">
+            ☰
+        </button>
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-content">
+                <div class="section-title">Навигация</div>
+                <div class="no-album-tile" id="noAlbumItem">
+                    <span>📁</span>
+                    <span>Файлы без альбома</span>
+                </div>
+
+                <div class="section-title">Альбомы</div>
+                <div class="albums-grid" id="albumsList"></div>
+            </div>
+
+            <button class="add-album-btn" onclick="showAddAlbumModal()">
+                + Добавить альбом
+            </button>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="gallery-grid" id="galleryGrid"></div>
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-state-icon">📷</div>
+                <div class="empty-state-text">Здесь пока ничего нет</div>
+                <div class="empty-state-hint">Загрузите файлы, чтобы начать</div>
+            </div>
+
+            <!-- Upload Area -->
+            <div class="upload-area-container">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-area-icon">📤</div>
+                    <p>Перетащите файлы сюда или кликните для выбора</p>
+                    <input type="file" class="upload-input" id="fileInput" multiple>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Token Modal -->
+    <div class="modal" id="tokenModal" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('tokenModal')">&times;</span>
+            <h3>Введите токен доступа</h3>
+            <div class="modal-field">
+                <label class="modal-label" for="albumTokenInput">Токен доступа к альбому</label>
+                <input type="password"
+                       id="albumTokenInput"
+                       placeholder="Введите токен"
+                       autocomplete="off">
+            </div>
+            <div class="modal-actions">
+                <button onclick="submitAlbumToken()">Войти</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Album Modal -->
+    <div class="modal" id="addAlbumModal" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('addAlbumModal')">&times;</span>
+            <h3>Создать новый альбом</h3>
+            <div class="modal-field">
+                <label class="modal-label" for="albumNameInput">Название альбома *</label>
+                <input type="text"
+                       id="albumNameInput"
+                       placeholder="Например: Летний отпуск 2024"
+                       autocomplete="off">
+            </div>
+            <div class="modal-field">
+                <label class="modal-label" for="albumDescriptionInput">Описание</label>
+                <input type="text"
+                       id="albumDescriptionInput"
+                       placeholder="Краткое описание альбома"
+                       autocomplete="off">
+            </div>
+            <div class="modal-field">
+                <label class="modal-label" for="albumAccessTokenInput">Токен доступа</label>
+                <input type="password"
+                       id="albumAccessTokenInput"
+                       placeholder="Оставьте пустым для открытого доступа"
+                       autocomplete="off">
+            </div>
+            <div class="modal-actions">
+                <button onclick="createAlbum()">Создать</button>
+                <button class="secondary" onclick="closeModal('addAlbumModal')">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Viewer Modal -->
+    <div class="modal viewer-modal" id="viewerModal" style="display: none;">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="viewer-close-btn" onclick="closeModal('viewerModal')" aria-label="Закрыть">
+                ✕
+            </button>
+            <div class="viewer-content" id="viewerContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let currentAlbumId = -1;
+        let albumTokens = {};
+        let pendingAlbumId = null;
+        let isMobileMenuOpen = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAlbums();
+            loadNoAlbumData();
+            setupDragAndDrop();
+            setupFileInput();
+            setupMobileMenu();
+            setupKeyboardShortcuts();
+        });
+
+        // Mobile Menu
+        function setupMobileMenu() {
+            const toggle = document.getElementById('mobileMenuToggle');
+            const sidebar = document.getElementById('sidebar');
+
+            toggle.addEventListener('click', () => {
+                isMobileMenuOpen = !isMobileMenuOpen;
+                sidebar.classList.toggle('active');
+                toggle.textContent = isMobileMenuOpen ? '✕' : '☰';
+            });
+
+            // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (isMobileMenuOpen &&
+                    !sidebar.contains(e.target) &&
+                    !toggle.contains(e.target)) {
+                    isMobileMenuOpen = false;
+                    sidebar.classList.remove('active');
+                    toggle.textContent = '☰';
+                }
+            });
+        }
+
+        // Keyboard Shortcuts
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    // Close viewer modal first if it's open
+                    const viewerModal = document.getElementById('viewerModal');
+                    if (viewerModal.style.display === 'block') {
+                        closeModal('viewerModal');
+                        return;
+                    }
+
+                    // Then close other modals
+                    const modals = document.querySelectorAll('.modal');
+                    modals.forEach(modal => {
+                        if (modal.style.display === 'block') {
+                            modal.style.display = 'none';
+                        }
+                    });
+                }
+            });
+        }
+
+        // Albums
+        async function loadAlbums() {
+            try {
+                const response = await fetch(`${API_BASE}/albums`);
+                const albums = await response.json();
+
+                const albumsList = document.getElementById('albumsList');
+                albumsList.innerHTML = '';
+
+                albums.forEach(album => {
+                    const albumTile = document.createElement('div');
+                    albumTile.className = 'album-tile';
+                    albumTile.innerHTML = `
+                                ${album.isProtected ? '<span class="lock-icon">🔒</span>' : ''}
+                                <img class="album-tile-image"
+                                     src="${album.imagePreviewId > 0 ? `${API_BASE}/preview/${album.imagePreviewId}` : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='}"
+                                     alt="${album.name}"
+                                     onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='"
+                                     loading="lazy">
+                                <div class="album-tile-info">
+                                    <div class="album-tile-name" title="${album.name}">${album.name}</div>
+                                </div>
+                            `;
+                    albumTile.onclick = () => selectAlbum(album.id, album.isProtected);
+                    albumTile.dataset.albumId = album.id;
+                    albumsList.appendChild(albumTile);
+                });
+            } catch (error) {
+                showNotification('Ошибка загрузки альбомов', 'error');
+            }
+        }
+
+        async function selectAlbum(albumId, isProtected) {
+            if (isProtected && !albumTokens[albumId]) {
+                pendingAlbumId = albumId;
+                showModal('tokenModal');
+                return;
+            }
+
+            currentAlbumId = albumId;
+            updateActiveAlbum();
+            loadAlbumData(albumId);
+
+            // Close mobile menu after selection
+            if (isMobileMenuOpen && window.innerWidth <= 1024) {
+                const sidebar = document.getElementById('sidebar');
+                const toggle = document.getElementById('mobileMenuToggle');
+                sidebar.classList.remove('active');
+                toggle.textContent = '☰';
+                isMobileMenuOpen = false;
+            }
+        }
+
+        function updateActiveAlbum() {
+            document.querySelectorAll('.album-tile, .no-album-tile').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            if (currentAlbumId === -1) {
+                document.getElementById('noAlbumItem').classList.add('active');
+            } else {
+                const activeAlbum = document.querySelector(`[data-album-id="${currentAlbumId}"]`);
+                if (activeAlbum) {
+                    activeAlbum.classList.add('active');
+                }
+            }
+        }
+
+        async function loadAlbumData(albumId) {
+            try {
+                const headers = {};
+                if (albumTokens[albumId]) {
+                    headers['X-ZERO-ACCESS-TOKEN'] = albumTokens[albumId];
+                }
+
+                const response = await fetch(`${API_BASE}/album/${albumId}/data`, { headers });
+
+                if (response.status === 401) {
+                    delete albumTokens[albumId];
+                    pendingAlbumId = albumId;
+                    showModal('tokenModal');
+                    return;
+                }
+
+                const data = await response.json();
+                displayGallery(data);
+            } catch (error) {
+                showNotification('Ошибка загрузки данных альбома', 'error');
+            }
+        }
+
+        async function loadNoAlbumData() {
+            try {
+                const response = await fetch(`${API_BASE}/data`);
+                const data = await response.json();
+                displayGallery(data);
+            } catch (error) {
+                showNotification('Ошибка загрузки данных', 'error');
+            }
+        }
+
+        function displayGallery(items) {
+            const galleryGrid = document.getElementById('galleryGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            galleryGrid.innerHTML = '';
+
+            if (!items || items.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            items.forEach(item => {
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'gallery-item';
+
+                const isMedia = item.mimeType.startsWith('image/') || item.mimeType.startsWith('video/');
+
+                galleryItem.innerHTML = `
+                            <img class="gallery-item-preview"
+                                 src="${API_BASE}/preview/${item.id}"
+                                 alt="${item.name}"
+                                 onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5GaWxlPC90ZXh0Pjwvc3ZnPg=='"
+                                 loading="lazy">
+                            <div class="gallery-item-info">
+                                <div class="gallery-item-name" title="${item.name}">${item.name}</div>
+                                <div class="gallery-item-actions">
+                                    <button class="action-btn" onclick="downloadFile(${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="Скачать">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="7 10 12 15 17 10"></polyline>
+                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        </svg>
+                                    </button>
+                                    <button class="action-btn" onclick="shareFile(${item.id}); event.stopPropagation();" title="Поделиться">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="18" cy="5" r="3"></circle>
+                                            <circle cx="6" cy="12" r="3"></circle>
+                                            <circle cx="18" cy="19" r="3"></circle>
+                                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+
+                if (isMedia) {
+                    galleryItem.onclick = () => viewMedia(item);
+                }
+
+                galleryGrid.appendChild(galleryItem);
+            });
+        }
+
+        function viewMedia(item) {
+            const viewerContent = document.getElementById('viewerContent');
+
+            if (item.mimeType.startsWith('image/')) {
+                viewerContent.innerHTML = `<img src="${API_BASE}/data/${item.id}" alt="${item.name}">`;
+            } else if (item.mimeType.startsWith('video/')) {
+                viewerContent.innerHTML = `
+                            <video controls autoplay>
+                                <source src="${API_BASE}/data/${item.id}" type="${item.mimeType}">
+                                Ваш браузер не поддерживает воспроизведение видео.
+                            </video>
+                        `;
+            }
+
+            showModal('viewerModal');
+        }
+
+        async function downloadFile(fileId, fileName) {
+            try {
+                const headers = {};
+                if (currentAlbumId !== -1 && albumTokens[currentAlbumId]) {
+                    headers['X-ZERO-ACCESS-TOKEN'] = albumTokens[currentAlbumId];
+                }
+
+                const response = await fetch(`${API_BASE}/data/${fileId}`, { headers });
+
+                if (!response.ok) {
+                    throw new Error('Download failed');
+                }
+
+                const blob = await response.blob();
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                showNotification('Файл загружен', 'success');
+            } catch (error) {
+                showNotification('Ошибка загрузки файла', 'error');
+            }
+        }
+
+        async function shareFile(fileId) {
+            try {
+                const shareUrl = `${window.location.origin}${API_BASE}/data/${fileId}`;
+
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(shareUrl);
+                    showNotification('Ссылка скопирована в буфер обмена', 'success');
+                } else {
+                    // Fallback для старых браузеров
+                    const textArea = document.createElement('textarea');
+                    textArea.value = shareUrl;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showNotification('Ссылка скопирована в буфер обмена', 'success');
+                }
+            } catch (error) {
+                showNotification('Не удалось скопировать ссылку', 'error');
+            }
+        }
+
+        // Upload
+        function setupDragAndDrop() {
+            const uploadArea = document.getElementById('uploadArea');
+
+            uploadArea.addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('drag-over');
+            });
+
+            uploadArea.addEventListener('dragleave', (e) => {
+                if (!uploadArea.contains(e.relatedTarget)) {
+                    uploadArea.classList.remove('drag-over');
+                }
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+                handleFiles(e.dataTransfer.files);
+            });
+        }
+
+        function setupFileInput() {
+            document.getElementById('fileInput').addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+                e.target.value = ''; // Reset input
+            });
+        }
+
+        async function handleFiles(files) {
+            const uploadToken = document.getElementById('uploadToken').value;
+            if (!uploadToken) {
+                showNotification('Введите токен загрузки', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const headers = {
+                    'X-ZERO-UPLOAD-TOKEN': uploadToken
+                };
+
+                if (currentAlbumId !== -1 && albumTokens[currentAlbumId]) {
+                    headers['X-ZERO-ACCESS-TOKEN'] = albumTokens[currentAlbumId];
+                }
+
+                const url = currentAlbumId !== -1
+                    ? `${API_BASE}/upload/${currentAlbumId}`
+                    : `${API_BASE}/upload`;
+
+                showNotification('Загрузка файлов...', 'success');
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: headers,
+                    body: formData
+                });
+
+                if (response.ok) {
+                    showNotification('Файлы успешно загружены', 'success');
+                    if (currentAlbumId === -1) {
+                        loadNoAlbumData();
+                    } else {
+                        loadAlbumData(currentAlbumId);
+                    }
+                } else if (response.status === 401) {
+                    showNotification('Неверный токен', 'error');
+                } else {
+                    showNotification('Ошибка загрузки', 'error');
+                }
+            } catch (error) {
+                showNotification('Ошибка загрузки', 'error');
+            }
+        }
+
+        // Album Token
+        function submitAlbumToken() {
+            const token = document.getElementById('albumTokenInput').value;
+            if (token && pendingAlbumId !== null) {
+                albumTokens[pendingAlbumId] = token;
+                closeModal('tokenModal');
+                selectAlbum(pendingAlbumId, true);
+                document.getElementById('albumTokenInput').value = '';
+            }
+        }
+
+        // Create Album
+        async function createAlbum() {
+            const name = document.getElementById('albumNameInput').value.trim();
+            const description = document.getElementById('albumDescriptionInput').value.trim();
+            const token = document.getElementById('albumAccessTokenInput').value.trim();
+
+            if (!name) {
+                showNotification('Введите название альбома', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/album`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description,
+                        token: token
+                    })
+                });
+
+                if (response.ok) {
+                    showNotification('Альбом создан', 'success');
+                    closeModal('addAlbumModal');
+                    loadAlbums();
+
+                    // Clear inputs
+                    document.getElementById('albumNameInput').value = '';
+                    document.getElementById('albumDescriptionInput').value = '';
+                    document.getElementById('albumAccessTokenInput').value = '';
+                } else {
+                    showNotification('Ошибка создания альбома', 'error');
+                }
+            } catch (error) {
+                showNotification('Ошибка создания альбома', 'error');
+            }
+        }
+
+        // UI Helpers
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        }
+
+        function showAddAlbumModal() {
+            showModal('addAlbumModal');
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideInRight 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Select no album items by default
+        document.getElementById('noAlbumItem').onclick = () => {
+            currentAlbumId = -1;
+            updateActiveAlbum();
+            loadNoAlbumData();
+
+            // Close mobile menu
+            if (isMobileMenuOpen && window.innerWidth <= 1024) {
+                const sidebar = document.getElementById('sidebar');
+                const toggle = document.getElementById('mobileMenuToggle');
+                sidebar.classList.remove('active');
+                toggle.textContent = '☰';
+                isMobileMenuOpen = false;
+            }
+        };
+
+        // Close modals on outside click
+        window.addEventListener('click', (event) => {
+            // Handle viewer modal separately
+            if (event.target.id === 'viewerModal' && event.target.classList.contains('viewer-modal')) {
+                closeModal('viewerModal');
+            }
+            // Handle other modals
+            else if (event.target.classList.contains('modal') && !event.target.classList.contains('viewer-modal')) {
+                closeModal(event.target.id);
+            }
+        });
+
+        // Handle Enter key in modal inputs
+        document.getElementById('albumTokenInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitAlbumToken();
+        });
+
+        document.getElementById('albumNameInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') createAlbum();
+        });
+    </script>
+</body>
+</html>
