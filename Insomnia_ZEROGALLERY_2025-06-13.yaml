@@ -1,0 +1,129 @@
+type: collection.insomnia.rest/5.0
+name: My first collection
+meta:
+  id: wrk_efdeb78a75df4ed09fad4ed961599866
+  created: 1749820108604
+  modified: 1749820108604
+  description: ""
+collection:
+  - url: http://localhost:5211/api/albums
+    name: GetAlbums
+    meta:
+      id: req_2a1abd3abdb64077a0e7e5906e1f3600
+      created: 1749820108645
+      modified: 1749820131218
+      isPrivate: false
+      description: ""
+      sortKey: -1749820108645
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/11.2.0
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: http://localhost:5211/api/data
+    name: GetNoAlbumData
+    meta:
+      id: req_78fe6744b26c4494aea3b5c96237c263
+      created: 1749820146948
+      modified: 1749820159054
+      isPrivate: false
+      description: ""
+      sortKey: -1749820146948
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/11.2.0
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: http://localhost:5211/api/album/13/data
+    name: GetAlbumData
+    meta:
+      id: req_084c74b30cd84d7fb85cab0b34b5c846
+      created: 1749820367907
+      modified: 1749820466683
+      isPrivate: false
+      description: ""
+      sortKey: -1749820367907
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/11.2.0
+        id: pair_ab4f06e6821a442ab1e8f7013dbc48f7
+      - id: pair_208a5788c04540af984470254e0af9c0
+        name: X-ZERO-ACCESS-TOKEN
+        value: password
+        description: ""
+        disabled: false
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: http://localhost:5211/api/upload
+    name: Upload
+    meta:
+      id: req_e38ccfcf997e487cadfde9c0606d9183
+      created: 1749821161633
+      modified: 1749821401591
+      isPrivate: false
+      description: ""
+      sortKey: -1749821161633
+    method: POST
+    body:
+      mimeType: multipart/form-data
+      params:
+        - id: pair_590f1900489a4cb989701a2ae023aa95
+          name: Test
+          value: ""
+          description: ""
+          disabled: false
+          type: file
+          fileName: H:\Desktop\Screenshot 2025-04-09 052203.png
+    headers:
+      - name: Content-Type
+        value: multipart/form-data
+      - name: User-Agent
+        value: insomnia/11.2.0
+        id: pair_73f079e5b3ca4e22a821591f43d18125
+      - id: pair_adadf99e19fd4ead88aec68a0ddc5abd
+        name: X-ZERO-UPLOAD-TOKEN
+        value: )*RTYH#ijknwefgadsmk,.
+        description: ""
+        disabled: false
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_9320c61298f3f9917dbd1ffe4abab46c79c3f6de
+    created: 1749820108606
+    modified: 1749820108606
+environments:
+  name: Base Environment
+  meta:
+    id: env_9320c61298f3f9917dbd1ffe4abab46c79c3f6de
+    created: 1749820108605
+    modified: 1749820108605
+    isPrivate: false
