@@ -2,10 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ZeroGallery</title>
     <style>
-        * {
+        *, *::before, *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -30,6 +30,21 @@
             --radius: 12px;
             --radius-sm: 8px;
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            /* Spacing variables */
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            /* Responsive sizing */
+            --header-height: 60px;
+            --sidebar-width: 320px;
+            --upload-area-height: 100px;
+            /* Safe areas for mobile */
+            --safe-area-inset-top: env(safe-area-inset-top, 0px);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-area-inset-left: env(safe-area-inset-left, 0px);
+            --safe-area-inset-right: env(safe-area-inset-right, 0px);
         }
 
         body {
@@ -40,22 +55,39 @@
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            padding-top: var(--safe-area-inset-top);
+        }
+
+        /* Prevent iOS bounce */
+        body {
+            position: fixed;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            body.sidebar-open {
+                overflow: hidden;
+            }
         }
 
         /* Layout Container */
         .app-container {
             display: flex;
-            min-height: 100vh;
+            height: 100vh;
+            width: 100%;
             position: relative;
+            overflow: hidden;
         }
 
         /* Header */
         .header {
             position: fixed;
-            top: 0;
+            top: var(--safe-area-inset-top);
             left: 0;
             right: 0;
-            height: 60px;
+            height: var(--header-height);
             background: rgba(20, 20, 20, 0.95);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -67,27 +99,25 @@
         .header-content {
             display: flex;
             align-items: center;
-            gap: 1.5rem;
-            flex-wrap: wrap;
-            padding: 0 1rem;
+            justify-content: center;
+            gap: var(--spacing-md);
+            padding: 0 var(--spacing-md);
+            padding-left: calc(var(--safe-area-inset-left) + var(--spacing-md));
+            padding-right: calc(var(--safe-area-inset-right) + var(--spacing-md));
             height: 100%;
+            max-width: 100%;
         }
 
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            flex-shrink: 0;
+        @media (max-width: 1024px) {
+            .header-content {
+                padding-left: calc(56px + var(--safe-area-inset-left) + var(--spacing-sm));
+            }
         }
 
         .upload-token-wrapper {
             flex: 1;
-            max-width: 300px;
-            min-width: 200px;
+            max-width: 400px;
+            min-width: 0;
         }
 
         .upload-token-input {
@@ -95,10 +125,11 @@
             background: var(--bg-tertiary);
             border: 1px solid var(--border);
             color: var(--text-primary);
-            padding: 0.75rem 1rem;
+            padding: var(--spacing-xs) var(--spacing-md);
             border-radius: var(--radius-sm);
-            font-size: 0.875rem;
+            font-size: clamp(0.75rem, 2vw, 0.875rem);
             transition: var(--transition);
+            height: 36px;
         }
 
             .upload-token-input:focus {
@@ -114,22 +145,23 @@
         /* Upload Area */
         .upload-area-container {
             position: fixed;
-            bottom: 0;
-            left: 320px;
+            bottom: var(--safe-area-inset-bottom);
+            left: var(--sidebar-width);
             right: 0;
             background: rgba(20, 20, 20, 0.95);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-top: 1px solid var(--border);
-            padding: 1rem 2rem;
+            padding: var(--spacing-md);
             z-index: 50;
-            transition: var(--transition);
+            transition: left 0.3s ease;
+            min-height: var(--upload-area-height);
         }
 
         .upload-area {
             border: 2px dashed var(--border);
             border-radius: var(--radius);
-            padding: 1.5rem;
+            padding: var(--spacing-lg);
             text-align: center;
             transition: var(--transition);
             cursor: pointer;
@@ -138,6 +170,7 @@
             overflow: hidden;
             max-width: 1400px;
             margin: 0 auto;
+            min-height: 60px;
         }
 
             .upload-area::before {
@@ -164,13 +197,13 @@
 
             .upload-area p {
                 color: var(--text-secondary);
-                font-size: 0.875rem;
+                font-size: clamp(0.75rem, 2vw, 0.875rem);
                 margin: 0;
             }
 
         .upload-area-icon {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
+            font-size: clamp(1.5rem, 4vw, 2rem);
+            margin-bottom: var(--spacing-sm);
             opacity: 0.5;
         }
 
@@ -180,43 +213,97 @@
 
         /* Sidebar */
         .sidebar {
-            width: 320px;
+            width: var(--sidebar-width);
             background: var(--bg-secondary);
             border-right: 1px solid var(--border);
-            overflow-y: auto;
-            overflow-x: hidden;
-            padding: 0 1rem 5rem;
             position: fixed;
             left: 0;
-            top: 0;
+            top: calc(var(--header-height) + var(--safe-area-inset-top));
             bottom: 0;
-            z-index: 90;
+            z-index: 80;
             transition: transform 0.3s ease;
-            padding-top: calc(60px + 2rem);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            padding: var(--spacing-lg) var(--spacing-md);
+            padding-bottom: calc(80px + var(--spacing-lg) + var(--safe-area-inset-bottom));
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
+            scroll-padding-bottom: 80px;
+        }
+
+        /* Sidebar close button for mobile */
+        .sidebar-close-btn {
+            display: none;
+            position: absolute;
+            top: calc(var(--safe-area-inset-top) + var(--spacing-sm));
+            right: var(--spacing-sm);
+            width: 40px;
+            height: 40px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            cursor: pointer;
+            z-index: 1;
+            transition: var(--transition);
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+            .sidebar-close-btn:hover {
+                background: var(--bg-hover);
+                border-color: var(--border-hover);
+                transform: scale(1.05);
+            }
+
+        @media (max-width: 1024px) {
+            .sidebar-close-btn {
+                display: flex;
+            }
         }
 
         /* Mobile Menu Toggle */
         .mobile-menu-toggle {
             display: none;
             position: fixed;
-            top: 0.75rem;
-            left: 1rem;
-            width: 3rem;
-            height: 3rem;
-            background: var(--accent);
-            border: none;
-            border-radius: 50%;
-            color: white;
+            top: calc(var(--safe-area-inset-top) + var(--spacing-sm));
+            left: calc(var(--safe-area-inset-left) + var(--spacing-sm));
+            width: 44px;
+            height: 44px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
             font-size: 1.25rem;
             cursor: pointer;
             z-index: 110;
-            box-shadow: var(--shadow);
+            box-shadow: none;
             transition: var(--transition);
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            padding: 0;
+            font-family: inherit;
+            font-weight: normal;
         }
 
             .mobile-menu-toggle:hover {
-                background: var(--accent-hover);
+                background: var(--bg-hover);
+                border-color: var(--border-hover);
                 transform: scale(1.05);
+            }
+
+            .mobile-menu-toggle:active {
+                transform: scale(0.95);
             }
 
         /* Albums Section */
@@ -225,21 +312,22 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--text-secondary);
-            margin-bottom: 1rem;
-            padding: 0 0.5rem;
+            margin-bottom: var(--spacing-md);
+            padding: 0 var(--spacing-sm);
         }
 
         .no-album-tile {
             background: var(--bg-tertiary);
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
-            padding: 1.25rem;
-            margin-bottom: 1.5rem;
+            padding: var(--spacing-md) var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
             cursor: pointer;
             transition: var(--transition);
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: var(--spacing-sm);
+            min-height: 48px;
         }
 
             .no-album-tile:hover {
@@ -257,8 +345,8 @@
         .albums-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-            margin-bottom: 1rem;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
         }
 
         .album-tile {
@@ -285,7 +373,7 @@
 
         .album-tile-image {
             width: 100%;
-            height: 70%;
+            height: 100%;
             object-fit: cover;
             background: var(--bg-hover);
         }
@@ -295,12 +383,12 @@
             bottom: 0;
             left: 0;
             right: 0;
-            padding: 0.75rem;
+            padding: var(--spacing-sm);
             background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
         }
 
         .album-tile-name {
-            font-size: 0.875rem;
+            font-size: clamp(0.75rem, 2vw, 0.875rem);
             font-weight: 500;
             color: var(--text-primary);
             overflow: hidden;
@@ -310,53 +398,66 @@
 
         .lock-icon {
             position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
+            top: var(--spacing-sm);
+            right: var(--spacing-sm);
             background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(10px);
-            padding: 0.25rem 0.5rem;
+            padding: var(--spacing-xs) var(--spacing-sm);
             border-radius: var(--radius-sm);
             font-size: 0.75rem;
         }
 
         .add-album-btn {
             position: absolute;
-            bottom: 1rem;
-            left: 1rem;
-            right: 1rem;
-            padding: 1rem;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            margin: 0;
+            padding: var(--spacing-md) var(--spacing-lg);
+            padding-bottom: calc(var(--spacing-md) + var(--safe-area-inset-bottom));
             background: var(--accent);
             color: white;
             border: none;
-            border-radius: var(--radius-sm);
+            border-radius: 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
             cursor: pointer;
-            font-size: 0.875rem;
+            font-size: clamp(0.75rem, 2vw, 0.875rem);
             font-weight: 500;
             transition: var(--transition);
             text-align: center;
-            box-shadow: var(--shadow);
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+            min-height: 56px;
+            z-index: 1;
+            flex-shrink: 0;
         }
 
             .add-album-btn:hover {
                 background: var(--accent-hover);
-                transform: translateY(-2px);
-                box-shadow: var(--shadow-lg);
+                box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
             }
 
         /* Main Content */
         .main-content {
             flex: 1;
-            margin-left: 320px;
-            padding: calc(60px + 2rem) 2rem 120px;
-            min-height: 100vh;
-            background: var(--bg-primary);
+            margin-left: var(--sidebar-width);
             position: relative;
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 100vh;
+            padding-top: calc(var(--header-height) + var(--safe-area-inset-top));
+            padding-bottom: calc(var(--upload-area-height) + var(--spacing-xl));
+        }
+
+        .main-content-inner {
+            padding: var(--spacing-lg);
+            padding-bottom: calc(var(--upload-area-height) + var(--spacing-xl) * 2 + var(--safe-area-inset-bottom));
+            min-height: 100%;
         }
 
         .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: var(--spacing-md);
             animation: fadeIn 0.5s ease;
         }
 
@@ -397,6 +498,9 @@
             cursor: pointer;
             transition: var(--transition);
             position: relative;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
         }
 
             .gallery-item:hover {
@@ -410,35 +514,50 @@
             height: 200px;
             object-fit: cover;
             background: var(--bg-tertiary);
+            display: block;
+            flex-shrink: 0;
+            box-sizing: border-box;
         }
 
         .gallery-item-info {
-            padding: 1rem;
+            padding: var(--spacing-md);
             border-top: 1px solid var(--border);
+            box-sizing: border-box;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
         }
 
         .gallery-item-name {
-            font-size: 0.875rem;
+            font-size: clamp(0.75rem, 2vw, 0.875rem);
             color: var(--text-primary);
-            margin-bottom: 0.75rem;
+            margin-bottom: var(--spacing-sm);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             font-weight: 500;
+            width: 100%;
+            text-align: left;
         }
 
         .gallery-item-actions {
             display: flex;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-sm);
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: center;
+            align-items: stretch;
         }
 
         .action-btn {
-            flex: 1;
+            flex: 1 1 50%;
+            min-width: 0;
             background: var(--bg-tertiary);
             color: var(--text-primary);
             border: 1px solid var(--border);
-            padding: 0.5rem;
+            padding: var(--spacing-sm);
             border-radius: var(--radius-sm);
             cursor: pointer;
             font-size: 1rem;
@@ -446,7 +565,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 2.5rem;
+            min-height: 40px;
+            box-sizing: border-box;
+            margin: 0;
         }
 
             .action-btn:hover {
@@ -463,61 +584,48 @@
                 width: 20px;
                 height: 20px;
                 stroke-width: 2;
-            }
-
-        .download-btn {
-            width: 100%;
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            padding: 0.5rem 1rem;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-size: 0.75rem;
-            font-weight: 500;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-            .download-btn:hover {
-                background: var(--accent);
-                border-color: var(--accent);
-                transform: scale(1.02);
+                flex-shrink: 0;
             }
 
         /* Modal Base */
         .modal {
             display: none !important;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
             background: rgba(0, 0, 0, 0.9);
             z-index: 1000;
             animation: fadeIn 0.3s ease;
-            padding: 1rem;
+            padding: 0;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
             .modal.show {
-                display: block !important;
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .modal:not(.viewer-modal) {
+                padding: var(--spacing-md);
             }
 
         .modal-content {
             position: relative;
-            margin: 2rem auto;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
-            padding: 2rem;
+            padding: var(--spacing-xl);
             border-radius: var(--radius);
             box-shadow: var(--shadow-lg);
             max-width: 500px;
             width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
             animation: slideIn 0.3s ease;
+            margin: auto;
         }
 
         @keyframes slideIn {
@@ -534,10 +642,10 @@
 
         .modal-close {
             position: absolute;
-            top: 1rem;
-            right: 1rem;
-            width: 2rem;
-            height: 2rem;
+            top: var(--spacing-md);
+            right: var(--spacing-md);
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -553,37 +661,39 @@
             .modal-close:hover {
                 color: var(--text-primary);
                 background: var(--bg-hover);
-                transform: rotate(90deg);
+                transform: scale(1.05);
             }
 
         .modal h3 {
-            margin-bottom: 1.5rem;
+            margin-bottom: var(--spacing-lg);
             color: var(--text-primary);
-            font-size: 1.25rem;
+            font-size: clamp(1.125rem, 3vw, 1.25rem);
             font-weight: 600;
+            padding-right: var(--spacing-xl);
         }
 
         .modal-field {
-            margin-bottom: 1.25rem;
+            margin-bottom: var(--spacing-lg);
         }
 
         .modal-label {
             display: block;
-            margin-bottom: 0.5rem;
+            margin-bottom: var(--spacing-sm);
             color: var(--text-secondary);
-            font-size: 0.875rem;
+            font-size: clamp(0.75rem, 2vw, 0.875rem);
             font-weight: 500;
         }
 
         .modal input {
             width: 100%;
-            padding: 0.75rem 1rem;
+            padding: var(--spacing-sm) var(--spacing-md);
             background: var(--bg-tertiary);
             border: 1px solid var(--border);
             color: var(--text-primary);
             border-radius: var(--radius-sm);
-            font-size: 0.875rem;
+            font-size: clamp(0.875rem, 2vw, 1rem);
             transition: var(--transition);
+            min-height: 44px;
         }
 
             .modal input:focus {
@@ -598,21 +708,24 @@
 
         .modal-actions {
             display: flex;
-            gap: 1rem;
-            margin-top: 2rem;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-xl);
+            flex-wrap: wrap;
         }
 
         .modal button {
             flex: 1;
+            min-width: 120px;
             background: var(--accent);
             color: white;
             border: none;
-            padding: 0.75rem 1.5rem;
+            padding: var(--spacing-sm) var(--spacing-lg);
             border-radius: var(--radius-sm);
             cursor: pointer;
-            font-size: 0.875rem;
+            font-size: clamp(0.75rem, 2vw, 0.875rem);
             font-weight: 500;
             transition: var(--transition);
+            min-height: 44px;
         }
 
             .modal button:hover {
@@ -632,16 +745,18 @@
 
         /* Viewer Modal */
         .viewer-modal {
-            padding: 2rem;
+            padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            overflow: auto;
+            position: fixed !important;
         }
 
             .viewer-modal .modal-content {
-                max-width: 95vw;
-                max-height: 95vh;
+                max-width: 100%;
+                max-height: 100%;
                 padding: 0;
                 background: transparent;
                 border: none;
@@ -650,14 +765,19 @@
                 justify-content: center;
                 position: relative;
                 cursor: default;
+                overflow: visible;
+                margin: 0;
+                box-shadow: none;
+                animation: none;
             }
 
-        .viewer-close-btn {
+        /* Critical viewer close button styles */
+        #viewerCloseBtn {
             position: fixed;
-            top: 2rem;
-            right: 2rem;
-            width: 3rem;
-            height: 3rem;
+            top: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -665,24 +785,31 @@
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             color: white;
             transition: var(--transition);
-            z-index: 1001;
+            z-index: 1002;
             font-size: 1.5rem;
             line-height: 1;
+            box-sizing: border-box;
+            padding: 0;
+            margin: 0;
+            flex-shrink: 0;
+            font-family: inherit;
+            font-weight: normal;
+            text-align: center;
         }
 
-            .viewer-close-btn:hover {
+            #viewerCloseBtn:hover {
                 background: rgba(0, 0, 0, 0.9);
                 color: white;
-                transform: scale(1.1) rotate(90deg);
+                transform: scale(1.05);
                 border-color: rgba(255, 255, 255, 0.2);
             }
 
-            .viewer-close-btn:active {
-                transform: scale(0.95) rotate(90deg);
+            #viewerCloseBtn:active {
+                transform: scale(0.95);
             }
 
         .viewer-content {
@@ -692,26 +819,29 @@
             justify-content: center;
             width: 100%;
             height: 100%;
+            padding: 60px 20px 20px 20px;
+            box-sizing: border-box;
         }
 
             .viewer-content img,
             .viewer-content video {
                 max-width: 100%;
-                max-height: 85vh;
+                max-height: 100%;
                 border-radius: var(--radius);
                 box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
                 background: var(--bg-secondary);
+                object-fit: contain;
             }
 
         /* Notifications */
         .notification {
             position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            padding: 1rem 1.5rem;
+            bottom: calc(var(--safe-area-inset-bottom) + var(--spacing-lg));
+            right: calc(var(--safe-area-inset-right) + var(--spacing-lg));
+            padding: var(--spacing-md) var(--spacing-lg);
             border-radius: var(--radius-sm);
             color: white;
-            font-size: 0.875rem;
+            font-size: clamp(0.75rem, 2vw, 0.875rem);
             font-weight: 500;
             animation: slideInRight 0.3s ease;
             z-index: 2000;
@@ -759,36 +889,68 @@
         /* Empty State */
         .empty-state {
             text-align: center;
-            padding: 4rem 2rem;
+            padding: var(--spacing-xl) var(--spacing-lg);
             color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
         }
 
         .empty-state-icon {
-            font-size: 4rem;
+            font-size: clamp(3rem, 8vw, 4rem);
             opacity: 0.2;
-            margin-bottom: 1rem;
+            margin-bottom: var(--spacing-md);
         }
 
         .empty-state-text {
-            font-size: 1.125rem;
-            margin-bottom: 0.5rem;
+            font-size: clamp(1rem, 3vw, 1.125rem);
+            margin-bottom: var(--spacing-sm);
         }
 
         .empty-state-hint {
-            font-size: 0.875rem;
+            font-size: clamp(0.75rem, 2vw, 0.875rem);
             opacity: 0.7;
         }
 
         /* Responsive Design */
+
+        /* Large screens */
+        @media (min-width: 1600px) {
+            :root {
+                --sidebar-width: 360px;
+            }
+        }
+
+        /* Tablet */
         @media (max-width: 1024px) {
             .sidebar {
                 transform: translateX(-100%);
+                position: fixed;
                 top: 0;
+                height: 100vh;
+                height: 100dvh;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                -webkit-overflow-scrolling: touch;
+                z-index: 90;
             }
 
                 .sidebar.active {
                     transform: translateX(0);
+                    box-shadow: var(--shadow-lg);
                 }
+
+            .sidebar-content {
+                padding-top: calc(var(--spacing-lg) + var(--safe-area-inset-top));
+                padding-bottom: calc(120px + var(--safe-area-inset-bottom));
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+                flex: 1;
+            }
 
             .main-content {
                 margin-left: 0;
@@ -796,119 +958,255 @@
 
             .upload-area-container {
                 left: 0;
+                padding-left: calc(var(--safe-area-inset-left) + var(--spacing-md));
+                padding-right: calc(var(--safe-area-inset-right) + var(--spacing-md));
             }
 
             .mobile-menu-toggle {
                 display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .gallery-grid {
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
             }
         }
 
+        /* Mobile landscape */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+
+            .gallery-item-preview {
+                height: 120px;
+            }
+        }
+
+        /* Mobile */
         @media (max-width: 768px) {
-            .header-content {
-                gap: 1rem;
-                padding-left: 3.5rem;
-            }
-
-            .logo {
-                font-size: 1.25rem;
-            }
-
-            .upload-area-container {
-                padding: 1rem;
+            :root {
+                --header-height: 56px;
+                --sidebar-width: 280px;
             }
 
             .upload-area {
-                padding: 1.25rem;
+                padding: var(--spacing-md);
             }
 
-            .main-content {
-                padding: calc(60px + 1rem) 1rem 100px;
+            .main-content-inner {
+                padding: var(--spacing-md);
             }
 
             .gallery-grid {
                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                gap: 1rem;
+                gap: var(--spacing-sm);
             }
 
             .gallery-item-preview {
                 height: 150px;
             }
 
-            .viewer-close-btn {
-                top: 1rem;
-                right: 1rem;
-                width: 2.5rem;
-                height: 2.5rem;
-                font-size: 1.25rem;
-            }
-
             .modal-content {
-                margin: 1rem auto;
-                padding: 1.5rem;
+                padding: var(--spacing-lg);
+                margin: var(--spacing-md);
             }
 
-            .notification {
-                bottom: 1rem;
-                right: 1rem;
-                left: 1rem;
-                max-width: none;
+            .albums-grid {
+                gap: var(--spacing-sm);
+            }
+
+            /* Fix viewer close button on mobile */
+            #viewerCloseBtn {
+                top: calc(10px + env(safe-area-inset-top, 0px));
+                right: calc(10px + env(safe-area-inset-right, 0px));
+                width: 40px;
+                height: 40px;
+            }
+
+            /* Fix gallery item buttons alignment */
+            .gallery-item-info {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                width: 100%;
+                box-sizing: border-box;
+                padding: var(--spacing-sm);
+            }
+
+            .gallery-item-actions {
+                justify-content: center;
+                width: 100%;
+                display: flex;
+                align-items: stretch;
             }
         }
 
+        /* Small mobile */
         @media (max-width: 480px) {
+            :root {
+                --sidebar-width: 100%;
+                --header-height: auto;
+            }
+
+            .header {
+                height: auto;
+                min-height: 56px;
+            }
+
+            .header-content {
+                padding: var(--spacing-sm);
+                padding-left: calc(56px + var(--safe-area-inset-left) + var(--spacing-xs));
+                padding-right: calc(var(--safe-area-inset-right) + var(--spacing-sm));
+            }
+
             .upload-token-wrapper {
-                flex: 1 1 100%;
                 max-width: none;
             }
 
-            .upload-area {
-                padding: 1rem;
+            .upload-token-input {
+                height: 32px;
+                font-size: 0.875rem;
+                padding: var(--spacing-xs) var(--spacing-sm);
             }
 
-                .upload-area p {
-                    font-size: 0.75rem;
-                }
+            .main-content {
+                padding-top: calc(56px + var(--safe-area-inset-top));
+            }
+
+            .upload-area p {
+                font-size: 0.75rem;
+            }
+
+            .upload-area-icon {
+                font-size: 1.5rem;
+            }
 
             .albums-grid {
                 grid-template-columns: 1fr;
             }
 
             .gallery-grid {
-                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-                gap: 0.75rem;
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
             }
 
             .gallery-item-preview {
-                height: 120px;
+                height: 110px;
             }
 
             .gallery-item-info {
-                padding: 0.75rem;
+                padding: var(--spacing-sm);
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
             }
 
             .gallery-item-name {
-                font-size: 0.75rem;
+                width: 100%;
+                text-align: left;
             }
 
-            .viewer-modal {
-                padding: 0.5rem;
+            .gallery-item-actions {
+                gap: var(--spacing-xs);
+                margin-top: var(--spacing-xs);
+                width: 100%;
+                display: flex;
+                justify-content: center;
             }
 
-            .viewer-content img,
-            .viewer-content video {
-                max-height: 90vh;
-                border-radius: var(--radius-sm);
+            .action-btn {
+                min-height: 36px;
+                padding: var(--spacing-xs);
+                flex: 1 1 50%;
+                width: auto;
+                margin: 0;
             }
+
+                .action-btn svg {
+                    width: 18px;
+                    height: 18px;
+                    flex-shrink: 0;
+                }
 
             .modal h3 {
                 font-size: 1.125rem;
+                margin-bottom: var(--spacing-md);
             }
+
+            .modal-actions {
+                flex-direction: column;
+            }
+
+            .modal button {
+                width: 100%;
+            }
+
+            .notification {
+                left: var(--spacing-md);
+                right: var(--spacing-md);
+                bottom: var(--spacing-md);
+                max-width: none;
+            }
+
+            /* Fix for viewer modal on mobile */
+            .viewer-content {
+                padding: var(--spacing-sm);
+            }
+
+                .viewer-content img,
+                .viewer-content video {
+                    max-width: calc(100vw - var(--spacing-sm) * 2);
+                    max-height: calc(100vh - var(--spacing-sm) * 2 - 60px);
+                }
+        }
+
+        /* Very small screens */
+        @media (max-width: 360px) {
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            }
+
+            .gallery-item-preview {
+                height: 90px;
+            }
+
+            .gallery-item-info {
+                padding: var(--spacing-xs) var(--spacing-sm);
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .gallery-item-name {
+                font-size: 0.7rem;
+                width: 100%;
+                text-align: left;
+            }
+
+            .gallery-item-actions {
+                gap: 4px;
+                display: flex;
+                justify-content: center;
+                width: 100%;
+                margin-top: 4px;
+            }
+
+            .action-btn {
+                padding: 4px;
+                flex: 1 1 50%;
+                min-width: 0;
+                box-sizing: border-box;
+                width: auto;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0;
+            }
+
+                .action-btn svg {
+                    width: 16px;
+                    height: 16px;
+                    flex-shrink: 0;
+                }
         }
 
         /* Dark scrollbar */
@@ -930,8 +1228,9 @@
                 background: var(--text-secondary);
             }
 
+        /* Thin scrollbar for sidebar */
         .sidebar-content::-webkit-scrollbar {
-            width: 6px;
+            width: 4px;
         }
 
         .sidebar-content::-webkit-scrollbar-track {
@@ -944,12 +1243,44 @@
             outline-offset: 2px;
         }
 
+        /* Touch targets */
+        @media (pointer: coarse) {
+            button, .action-btn, .album-tile, .no-album-tile, input, .modal-close {
+                min-height: 44px;
+                min-width: 44px;
+            }
+        }
+
+        /* High contrast mode */
+        @media (prefers-contrast: high) {
+            :root {
+                --border: rgba(255, 255, 255, 0.2);
+                --border-hover: rgba(255, 255, 255, 0.3);
+            }
+        }
+
         /* Reduced motion */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
                 animation-duration: 0.01ms !important;
                 animation-iteration-count: 1 !important;
                 transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            .header, .sidebar, .upload-area-container, .mobile-menu-toggle, .action-btn {
+                display: none !important;
+            }
+
+            .main-content {
+                margin: 0;
+                padding: 0;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(4, 1fr);
             }
         }
     </style>
@@ -959,7 +1290,6 @@
         <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <h1 class="logo">ZeroGallery</h1>
                 <div class="upload-token-wrapper">
                     <input type="password"
                            class="upload-token-input"
@@ -995,22 +1325,24 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <div class="gallery-grid" id="galleryGrid"></div>
-            <div class="empty-state" id="emptyState" style="display: none;">
-                <div class="empty-state-icon">📷</div>
-                <div class="empty-state-text">Здесь пока ничего нет</div>
-                <div class="empty-state-hint">Загрузите файлы, чтобы начать</div>
-            </div>
-
-            <!-- Upload Area -->
-            <div class="upload-area-container">
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-area-icon">📤</div>
-                    <p>Перетащите файлы сюда или кликните для выбора</p>
-                    <input type="file" class="upload-input" id="fileInput" multiple>
+            <div class="main-content-inner">
+                <div class="gallery-grid" id="galleryGrid"></div>
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-state-icon">📷</div>
+                    <div class="empty-state-text">Здесь пока ничего нет</div>
+                    <div class="empty-state-hint">Загрузите файлы, чтобы начать</div>
                 </div>
             </div>
         </main>
+
+        <!-- Upload Area -->
+        <div class="upload-area-container">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-area-icon">📤</div>
+                <p>Перетащите файлы сюда или кликните для выбора</p>
+                <input type="file" class="upload-input" id="fileInput" multiple>
+            </div>
+        </div>
     </div>
 
     <!-- Token Modal -->
@@ -1066,10 +1398,10 @@
 
     <!-- Viewer Modal -->
     <div class="modal viewer-modal" id="viewerModal" style="display: none;">
+        <button id="viewerCloseBtn" onclick="closeModal('viewerModal')" aria-label="Закрыть">
+            ✕
+        </button>
         <div class="modal-content" onclick="event.stopPropagation()">
-            <button class="viewer-close-btn" onclick="closeModal('viewerModal')" aria-label="Закрыть">
-                ✕
-            </button>
             <div class="viewer-content" id="viewerContent"></div>
         </div>
     </div>
@@ -1089,7 +1421,18 @@
             setupFileInput();
             setupMobileMenu();
             setupKeyboardShortcuts();
+
+            // Fix iOS viewport height
+            fixViewportHeight();
+            window.addEventListener('resize', fixViewportHeight);
+            window.addEventListener('orientationchange', fixViewportHeight);
         });
+
+        // Fix viewport height for mobile browsers
+        function fixViewportHeight() {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
 
         // Mobile Menu
         function setupMobileMenu() {
@@ -1100,6 +1443,13 @@
                 isMobileMenuOpen = !isMobileMenuOpen;
                 sidebar.classList.toggle('active');
                 toggle.textContent = isMobileMenuOpen ? '✕' : '☰';
+
+                // Prevent body scroll when menu is open
+                if (isMobileMenuOpen) {
+                    document.body.classList.add('sidebar-open');
+                } else {
+                    document.body.classList.remove('sidebar-open');
+                }
             });
 
             // Close on outside click
@@ -1107,11 +1457,19 @@
                 if (isMobileMenuOpen &&
                     !sidebar.contains(e.target) &&
                     !toggle.contains(e.target)) {
-                    isMobileMenuOpen = false;
-                    sidebar.classList.remove('active');
-                    toggle.textContent = '☰';
+                    closeMobileMenu();
                 }
             });
+        }
+
+        function closeMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.getElementById('mobileMenuToggle');
+
+            isMobileMenuOpen = false;
+            sidebar.classList.remove('active');
+            toggle.textContent = '☰';
+            document.body.classList.remove('sidebar-open');
         }
 
         // Keyboard Shortcuts
@@ -1120,18 +1478,21 @@
                 if (e.key === 'Escape') {
                     // Close viewer modal first if it's open
                     const viewerModal = document.getElementById('viewerModal');
-                    if (viewerModal.style.display === 'block') {
+                    if (viewerModal.classList.contains('show')) {
                         closeModal('viewerModal');
                         return;
                     }
 
                     // Then close other modals
-                    const modals = document.querySelectorAll('.modal');
+                    const modals = document.querySelectorAll('.modal.show');
                     modals.forEach(modal => {
-                        if (modal.style.display === 'block') {
-                            modal.style.display = 'none';
-                        }
+                        closeModal(modal.id);
                     });
+
+                    // Close mobile menu
+                    if (isMobileMenuOpen) {
+                        closeMobileMenu();
+                    }
                 }
             });
         }
@@ -1149,16 +1510,16 @@
                     const albumTile = document.createElement('div');
                     albumTile.className = 'album-tile';
                     albumTile.innerHTML = `
-                                ${album.isProtected ? '<span class="lock-icon">🔒</span>' : ''}
-                                <img class="album-tile-image"
-                                     src="${album.imagePreviewId > 0 ? `${API_BASE}/preview/${album.imagePreviewId}` : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='}"
-                                     alt="${album.name}"
-                                     onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='"
-                                     loading="lazy">
-                                <div class="album-tile-info">
-                                    <div class="album-tile-name" title="${album.name}">${album.name}</div>
-                                </div>
-                            `;
+                                        ${album.isProtected ? '<span class="lock-icon">🔒</span>' : ''}
+                                        <img class="album-tile-image"
+                                             src="${album.imagePreviewId > 0 ? `${API_BASE}/preview/${album.imagePreviewId}` : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='}"
+                                             alt="${album.name}"
+                                             onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='"
+                                             loading="lazy">
+                                        <div class="album-tile-info">
+                                            <div class="album-tile-name" title="${album.name}">${album.name}</div>
+                                        </div>
+                                    `;
                     albumTile.onclick = () => selectAlbum(album.id, album.isProtected);
                     albumTile.dataset.albumId = album.id;
                     albumsList.appendChild(albumTile);
@@ -1180,12 +1541,8 @@
             loadAlbumData(albumId);
 
             // Close mobile menu after selection
-            if (isMobileMenuOpen && window.innerWidth <= 1024) {
-                const sidebar = document.getElementById('sidebar');
-                const toggle = document.getElementById('mobileMenuToggle');
-                sidebar.classList.remove('active');
-                toggle.textContent = '☰';
-                isMobileMenuOpen = false;
+            if (window.innerWidth <= 1024) {
+                closeMobileMenu();
             }
         }
 
@@ -1244,7 +1601,7 @@
             galleryGrid.innerHTML = '';
 
             if (!items || items.length === 0) {
-                emptyState.style.display = 'block';
+                emptyState.style.display = 'flex';
                 return;
             }
 
@@ -1257,33 +1614,33 @@
                 const isMedia = item.mimeType.startsWith('image/') || item.mimeType.startsWith('video/');
 
                 galleryItem.innerHTML = `
-                            <img class="gallery-item-preview"
-                                 src="${API_BASE}/preview/${item.id}"
-                                 alt="${item.name}"
-                                 onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5GaWxlPC90ZXh0Pjwvc3ZnPg=='"
-                                 loading="lazy">
-                            <div class="gallery-item-info">
-                                <div class="gallery-item-name" title="${item.name}">${item.name}</div>
-                                <div class="gallery-item-actions">
-                                    <button class="action-btn" onclick="downloadFile(${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="Скачать">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                            <polyline points="7 10 12 15 17 10"></polyline>
-                                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                                        </svg>
-                                    </button>
-                                    <button class="action-btn" onclick="shareFile(${item.id}); event.stopPropagation();" title="Поделиться">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <circle cx="18" cy="5" r="3"></circle>
-                                            <circle cx="6" cy="12" r="3"></circle>
-                                            <circle cx="18" cy="19" r="3"></circle>
-                                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        `;
+                                    <img class="gallery-item-preview"
+                                         src="${API_BASE}/preview/${item.id}"
+                                         alt="${item.name}"
+                                         onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5GaWxlPC90ZXh0Pjwvc3ZnPg=='"
+                                         loading="lazy">
+                                    <div class="gallery-item-info">
+                                        <div class="gallery-item-name" title="${item.name}">${item.name}</div>
+                                        <div class="gallery-item-actions">
+                                            <button class="action-btn" onclick="downloadFile(${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="Скачать">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                                </svg>
+                                            </button>
+                                            <button class="action-btn" onclick="shareFile(${item.id}); event.stopPropagation();" title="Поделиться">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <circle cx="18" cy="5" r="3"></circle>
+                                                    <circle cx="6" cy="12" r="3"></circle>
+                                                    <circle cx="18" cy="19" r="3"></circle>
+                                                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
 
                 if (isMedia) {
                     galleryItem.onclick = () => viewMedia(item);
@@ -1300,11 +1657,11 @@
                 viewerContent.innerHTML = `<img src="${API_BASE}/data/${item.id}" alt="${item.name}">`;
             } else if (item.mimeType.startsWith('video/')) {
                 viewerContent.innerHTML = `
-                            <video controls autoplay>
-                                <source src="${API_BASE}/data/${item.id}" type="${item.mimeType}">
-                                Ваш браузер не поддерживает воспроизведение видео.
-                            </video>
-                        `;
+                                    <video controls autoplay>
+                                        <source src="${API_BASE}/data/${item.id}" type="${item.mimeType}">
+                                        Ваш браузер не поддерживает воспроизведение видео.
+                                    </video>
+                                `;
             }
 
             showModal('viewerModal');
@@ -1355,9 +1712,13 @@
                     textArea.style.left = '-999999px';
                     document.body.appendChild(textArea);
                     textArea.select();
-                    document.execCommand('copy');
+                    try {
+                        document.execCommand('copy');
+                        showNotification('Ссылка скопирована в буфер обмена', 'success');
+                    } catch (err) {
+                        showNotification('Не удалось скопировать ссылку', 'error');
+                    }
                     document.body.removeChild(textArea);
-                    showNotification('Ссылка скопирована в буфер обмена', 'success');
                 }
             } catch (error) {
                 showNotification('Не удалось скопировать ссылку', 'error');
@@ -1463,6 +1824,7 @@
             const name = document.getElementById('albumNameInput').value.trim();
             const description = document.getElementById('albumDescriptionInput').value.trim();
             const token = document.getElementById('albumAccessTokenInput').value.trim();
+            const uploadToken = document.getElementById('uploadToken').value;
 
             if (!name) {
                 showNotification('Введите название альбома', 'error');
@@ -1473,7 +1835,8 @@
                 const response = await fetch(`${API_BASE}/album`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-ZERO-UPLOAD-TOKEN': uploadToken
                     },
                     body: JSON.stringify({
                         name: name,
@@ -1505,6 +1868,12 @@
             if (modal) {
                 modal.classList.add('show');
                 document.body.style.overflow = 'hidden';
+
+                // Focus first input if exists
+                const firstInput = modal.querySelector('input');
+                if (firstInput) {
+                    setTimeout(() => firstInput.focus(), 100);
+                }
             }
         }
 
@@ -1550,24 +1919,19 @@
             loadNoAlbumData();
 
             // Close mobile menu
-            if (isMobileMenuOpen && window.innerWidth <= 1024) {
-                const sidebar = document.getElementById('sidebar');
-                const toggle = document.getElementById('mobileMenuToggle');
-                sidebar.classList.remove('active');
-                toggle.textContent = '☰';
-                isMobileMenuOpen = false;
+            if (window.innerWidth <= 1024) {
+                closeMobileMenu();
             }
         };
 
         // Close modals on outside click
         window.addEventListener('click', (event) => {
-            // Handle viewer modal separately
-            if (event.target.id === 'viewerModal' && event.target.classList.contains('viewer-modal')) {
-                closeModal('viewerModal');
-            }
-            // Handle other modals
-            else if (event.target.classList.contains('modal') && !event.target.classList.contains('viewer-modal')) {
-                closeModal(event.target.id);
+            if (event.target.classList.contains('modal') && event.target.classList.contains('show')) {
+                if (event.target.id === 'viewerModal') {
+                    closeModal('viewerModal');
+                } else if (!event.target.classList.contains('viewer-modal')) {
+                    closeModal(event.target.id);
+                }
             }
         });
 
@@ -1578,6 +1942,16 @@
 
         document.getElementById('albumNameInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') createAlbum();
+        });
+
+        // Prevent zoom on input focus on iOS
+        document.querySelectorAll('input, textarea, select').forEach(element => {
+            element.addEventListener('focus', (e) => {
+                e.target.style.fontSize = '16px';
+            });
+            element.addEventListener('blur', (e) => {
+                e.target.style.fontSize = '';
+            });
         });
     </script>
 </body>

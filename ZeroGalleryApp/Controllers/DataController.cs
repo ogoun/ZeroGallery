@@ -125,24 +125,39 @@ namespace ZeroGalleryApp.Controllers
             try
             {
                 var files = Request?.Form?.Files;
-                if (files != null)
+                if (files != null && files.Count == 1)
                 {
+                    var file = files[0];
+                    Log.Debug($"[DataController.Upload] Receive file to upload.");
+                    if (file.Length > 0)
+                    {
+                        var name = file.FileName;
+                        var record = await _storage.WriteData(name, string.Empty, string.Empty, album_id, file.OpenReadStream());
+                        return Ok(record.Id);
+                    }
+                }
+                else
+                {
+                    var ids = new long[files.Count];
+                    int idx_index = 0;
                     Log.Debug($"[DataController.Upload] Receive {files.Count} files to upload.");
                     foreach (var file in files)
                     {
                         if (file.Length > 0)
                         {
                             var name = file.FileName;
-                            await _storage.WriteData(name, string.Empty, string.Empty, album_id, file.OpenReadStream());
+                            var record = await _storage.WriteData(name, string.Empty, string.Empty, album_id, file.OpenReadStream());
+                            ids[idx_index++] = record.Id;
                         }
                     }
+                    return Ok(ids);
                 }
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "[DataController.Upload]");
             }
-            return Ok();
+            return BadRequest();
         }
 
         [HttpGet("preview/{id}")]
