@@ -1,6 +1,8 @@
 # ZeroGallery
 Simple media gallery
 
+![ZeroGallery]([https://github.com/ogoun/ogoun/blob/main/images/reprompter/App.png](https://github.com/ogoun/ogoun/blob/main/images/zerogallery/01.png))
+
 Сервис для размещения фото, видео и прочих файлов.
 Для загрузки файлов и создания альбомов нужно указывать токен загрузки (передается в заголовке X-ZERO-UPLOAD-TOKEN).
 Файлы вне альбомов доступны для просмотра всем. Альбомы можно дополнительно защищать токенов разрешающим просмотр содержимого. Токен для просмотра альбома передается в заголовке X-ZERO-ACCESS-TOKEN.
