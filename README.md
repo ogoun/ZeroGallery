@@ -3,6 +3,8 @@ Simple media gallery
 
 ![ZeroGallery](https://github.com/ogoun/ogoun/blob/main/images/zerogallery/01.png)
 
+## Русский
+
 Сервис для размещения фото, видео и прочих файлов.
 Для загрузки файлов и создания альбомов нужно указывать токен загрузки (передается в заголовке X-ZERO-UPLOAD-TOKEN).
 Файлы вне альбомов доступны для просмотра всем. Альбомы можно дополнительно защищать токенов разрешающим просмотр содержимого. Токен для просмотра альбома передается в заголовке X-ZERO-ACCESS-TOKEN.
@@ -12,6 +14,7 @@ Simple media gallery
 apt install libsqlite3-dev
 ```
 
+## Eng
 
 Service for posting photos, videos and other files.
 To upload files and create albums, you need to specify an upload token (passed in the X-ZERO-UPLOAD-TOKEN header).
