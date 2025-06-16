@@ -87,6 +87,68 @@ namespace ZeroGalleryApp.Controllers
             return Ok(Enumerable.Empty<DataInfo>());
         }
 
+        [HttpGet("preview/{id}")]
+        public IActionResult GetPreviewImage(long id)
+        {
+            try
+            {
+                var info = _storage.GetPreview(id);
+                if (info == null)
+                {
+                    Log.Warning($"[DataController.GetPreviewImage] Not found data {id}");
+                    return NotFound();
+                }
+
+                if (_storage.HasAccessToItem(id, OperationContext.AccessToken))
+                {
+                    if (string.IsNullOrEmpty(info.FilePath))
+                    {
+                        return GetBlankFileForDataType(info.DataType);
+                    }
+                    return PhysicalFile(info.FilePath, info.MimeType, info.Name);
+                }
+                else
+                {
+                    return GetBlankFileForDataType(info.DataType);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[ImageController.GetPreviewImage]");
+            }
+            return GetBlankFileForDataType(DataType.Binary);
+        }
+
+        [HttpGet("data/{id}")]
+        [EnableCors("AllowAll")]
+        public IActionResult GetData(long id)
+        {
+            try
+            {
+                var info = _storage.GetData(id);
+                if (info == null)
+                {
+                    Log.Warning($"[DataController.GetData] Not found data {id}");
+                    return NotFound();
+                }
+
+                if (_storage.HasAccessToItem(id, OperationContext.AccessToken))
+                {
+                    return PhysicalFile(info.FilePath, info.MimeType, info.Name);
+                }
+                else
+                {
+                    Log.Warning($"[DataController.GetData] Unauthorized access to data {id} with token '{OperationContext.AccessToken}' or data not found");
+                    return Unauthorized();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[DataController.GetData]");
+                return BadRequest();
+            }
+        }
+
         [HttpPost("album")]
         public ActionResult<AlbumInfo> CreateAlbum([FromBody] CreateAlbumInfo info)
         {
@@ -160,67 +222,7 @@ namespace ZeroGalleryApp.Controllers
             return BadRequest();
         }
 
-        [HttpGet("preview/{id}")]
-        public IActionResult GetPreviewImage(long id)
-        {
-            try
-            {
-                var info = _storage.GetPreview(id);
-                if (info == null)
-                {
-                    Log.Warning($"[DataController.GetPreviewImage] Not found data {id}");
-                    return NotFound();
-                }
-
-                if (_storage.HasAccessToItem(id, OperationContext.AccessToken))
-                {
-                    if (string.IsNullOrEmpty(info.FilePath))
-                    {
-                        return GetBlankFileForDataType(info.DataType);
-                    }
-                    return PhysicalFile(info.FilePath, info.MimeType, info.Name);
-                }
-                else
-                {
-                    return GetBlankFileForDataType(info.DataType);
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "[ImageController.GetPreviewImage]");
-            }
-            return GetBlankFileForDataType(DataType.Binary);
-        }
-
-        [HttpGet("data/{id}")]
-        [EnableCors("AllowAll")]
-        public IActionResult GetData(long id)
-        {
-            try
-            {
-                var info = _storage.GetData(id);
-                if (info == null)
-                {
-                    Log.Warning($"[DataController.GetData] Not found data {id}");
-                    return NotFound();
-                }
-
-                if (_storage.HasAccessToItem(id, OperationContext.AccessToken))
-                {
-                    return PhysicalFile(info.FilePath, info.MimeType, info.Name);
-                }
-                else
-                {
-                    Log.Warning($"[DataController.GetData] Unauthorized access to data {id} with token '{OperationContext.AccessToken}' or data not found");
-                    return Unauthorized();
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "[DataController.GetData]");
-                return BadRequest();
-            }
-        }
+        
 
         private PhysicalFileResult GetBlankFileForDataType(DataType dataType)
         {
