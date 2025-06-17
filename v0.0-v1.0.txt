@@ -1,0 +1,3 @@
+ALTER TABLE DataRecord ADD COLUMN InRemoving INTEGER default FALSE
+ALTER TABLE DataAlbum ADD COLUMN AllowRemoveData INTEGER default TRUE
+ALTER TABLE DataAlbum ADD COLUMN InRemoving INTEGER default FALSE

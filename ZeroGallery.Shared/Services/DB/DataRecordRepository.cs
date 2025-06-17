@@ -2,12 +2,12 @@
 
 namespace ZeroGallery.Shared.Services.DB
 {
-    internal class DataRecordRepository
+    public sealed class DataRecordRepository
         : BaseSqliteDB<DataRecord>
     {
         private readonly object _locker = new object();
-        public DataRecordRepository()
-            : base("data")
+        public DataRecordRepository(string db_root)
+            : base(Path.Combine(db_root, "data"))
         {
         }
 
@@ -19,6 +19,10 @@ namespace ZeroGallery.Shared.Services.DB
                 return _table.MaxBy(r => r.Id)!;
             }
         }
+
+        public IEnumerable<DataRecord> GetRemovingRecords() => SelectBy(r => r.InRemoving == true) ?? Enumerable.Empty<DataRecord>();
+
+        public long GetAlbumFilesCount(long albumId) => Count(r => r.AlbumId == albumId);
 
         protected override void DisposeStorageData()
         {

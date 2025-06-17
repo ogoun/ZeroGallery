@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
-using ZeroGallery.Shared;
+using System.Net.Mime;
 using ZeroGallery.Shared.Models;
 using ZeroGallery.Shared.Services;
 using ZeroGallery.Shared.Services.DB;
@@ -10,19 +10,26 @@ namespace ZeroGalleryApp.Controllers
 {
     [Route("api")]
     [ApiController]
+    [Produces(MediaTypeNames.Application.Json)]
     public class DataController : BaseController
     {
         private readonly DataStorage _storage;
-        private readonly string _uploadToken;
-        public DataController(AppConfig config, DataStorage storage) : base()
+
+        public DataController(AppConfig config, DataStorage storage) : base(config)
         {
             if (storage == null) throw new ArgumentNullException(nameof(storage));
-
             _storage = storage;
-            _uploadToken = config.api_write_token ?? string.Empty;
+        }
+
+        [HttpGet("version")]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        public ActionResult<string> GetVersion()
+        {
+            return Ok(DataStorage.VERSION);
         }
 
         [HttpGet("albums")]
+        [ProducesResponseType(typeof(AlbumInfo[]), StatusCodes.Status200OK)]
         public ActionResult<AlbumInfo[]> GetAlbums()
         {
             try
@@ -42,6 +49,7 @@ namespace ZeroGalleryApp.Controllers
         }
 
         [HttpGet("data")]
+        [ProducesResponseType(typeof(DataInfo[]), StatusCodes.Status200OK)]
         public ActionResult<DataInfo[]> GetNoAlbumDataItems()
         {
             try
@@ -61,11 +69,13 @@ namespace ZeroGalleryApp.Controllers
         }
 
         [HttpGet("album/{id}/data")]
-        public ActionResult<DataInfo[]> GetAlbumDataItems(long id)
+        [ProducesResponseType(typeof(DataInfo[]), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public ActionResult<DataInfo[]> GetAlbumDataItems([FromRoute] long id)
         {
             try
             {
-                if (_storage.HasAccessToAlbum(id, OperationContext.AccessToken!))
+                if (CanViewImages(_storage.GetAlbumToken(id)))
                 {
                     var items = _storage.GetDataByAlbum(id);
                     if (items?.Any() ?? false)
@@ -82,13 +92,16 @@ namespace ZeroGalleryApp.Controllers
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "[DataController.GetAlbumDataItems]");
+                Error(ex, $"[DataController.GetAlbumDataItems] AlbumId: {id}");
             }
             return Ok(Enumerable.Empty<DataInfo>());
         }
 
         [HttpGet("preview/{id}")]
-        public IActionResult GetPreviewImage(long id)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Produces("image/jpeg", "image/png", "image/webp", MediaTypeNames.Application.Octet)]
+        public IActionResult GetPreviewImage([FromRoute] long id)
         {
             try
             {
@@ -98,19 +111,11 @@ namespace ZeroGalleryApp.Controllers
                     Log.Warning($"[DataController.GetPreviewImage] Not found data {id}");
                     return NotFound();
                 }
-
-                if (_storage.HasAccessToItem(id, OperationContext.AccessToken))
+                if (CanViewImages(_storage.GetItemAlbumToken(id)) && System.IO.File.Exists(info.FilePath)) // файл превью может не существовать для некоторых типов файлов
                 {
-                    if (string.IsNullOrEmpty(info.FilePath))
-                    {
-                        return GetBlankFileForDataType(info.DataType);
-                    }
                     return PhysicalFile(info.FilePath, info.MimeType, info.Name);
                 }
-                else
-                {
-                    return GetBlankFileForDataType(info.DataType);
-                }
+                return GetBlankFileForDataType(info.DataType);
             }
             catch (Exception ex)
             {
@@ -121,82 +126,90 @@ namespace ZeroGalleryApp.Controllers
 
         [HttpGet("data/{id}")]
         [EnableCors("AllowAll")]
-        public IActionResult GetData(long id)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces(MediaTypeNames.Application.Octet)]
+        public IActionResult GetData([FromRoute] long id)
         {
             try
             {
+                if (CanViewImages(_storage.GetItemAlbumToken(id)) == false)
+                {
+                    return Unauthorized();
+                }
                 var info = _storage.GetData(id);
                 if (info == null)
                 {
                     Log.Warning($"[DataController.GetData] Not found data {id}");
                     return NotFound();
                 }
-
-                if (_storage.HasAccessToItem(id, OperationContext.AccessToken))
-                {
-                    return PhysicalFile(info.FilePath, info.MimeType, info.Name);
-                }
-                else
-                {
-                    Log.Warning($"[DataController.GetData] Unauthorized access to data {id} with token '{OperationContext.AccessToken}' or data not found");
-                    return Unauthorized();
-                }
+                return PhysicalFile(info.FilePath, info.MimeType, info.Name);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "[DataController.GetData]");
-                return BadRequest();
+                Error(ex, $"[DataController.GetData] Id: {id}");
+                return BadRequest(ex.Message);
             }
         }
 
         [HttpPost("album")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(AlbumInfo), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public ActionResult<AlbumInfo> CreateAlbum([FromBody] CreateAlbumInfo info)
         {
-            if (OperationContext.UploadToken!.IsEqual(_uploadToken) == false)
+            if (string.IsNullOrWhiteSpace(info.Name))
             {
-                Log.Warning($"[DataController.CreateAlbum] Wrong upload token '{OperationContext.UploadToken}'");
+                return BadRequest("Empty album name");
+            }
+            try
+            {
+                if (CanCreateAlbum())
+                {
+                    var album = _storage.AppendAlbum(info.Name, info.Description, info.Token);
+                    Log.Info($"[DataController.CreateAlbum] Album '{info.Name}' created");
+                    return Ok(AlbumMapper.Map(album));
+                }
                 return Unauthorized();
             }
-            var album = _storage.AppendAlbum(info.Name, info.Description, info.Token);
-            return Ok(AlbumMapper.Map(album));
+            catch (Exception ex)
+            {
+                Error(ex, $"[DataController.CreateAlbum] Fault create album '{info.Name}'. Token: '{info.Token ?? string.Empty}'. Description: {info.Description ?? string.Empty}");
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("upload/{albumId?}")]
-        public async Task<IActionResult> Upload(long albumId = -1)
+        [DisableRequestSizeLimit]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(long), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(long[]), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> Upload([FromRoute] long albumId = -1)
         {
-            if (OperationContext.UploadToken!.IsEqual(_uploadToken) == false)
-            {
-                Log.Warning($"[DataController.Upload] Wrong upload token '{OperationContext.UploadToken}'");
-                return Unauthorized();
-            }
-
-            var album_id = -1L;
-            if (albumId != -1)
-            {
-                if (_storage.HasAccessToAlbum(albumId, OperationContext.AccessToken!))
-                {
-                    album_id = albumId;
-                }
-                else
-                {
-                    Log.Warning($"[DataController.Upload] Wrong album({albumId}) access token '{OperationContext.AccessToken}'");
-                    return Unauthorized();
-                }
-            }
-
             try
             {
+                if (CanUploadImages(_storage.GetAlbumToken(albumId)) == false)
+                {
+                    return Unauthorized();
+                }
+
                 var files = Request?.Form?.Files;
-                if (files != null && files.Count == 1)
+                if (files == null || files.Count == 0)
+                {
+                    return BadRequest("No files for upload");
+                }
+                if (files.Count == 1)
                 {
                     var file = files[0];
                     Log.Debug($"[DataController.Upload] Receive file to upload.");
-                    if (file.Length > 0)
-                    {
-                        var name = file.FileName;
-                        var record = await _storage.WriteData(name, string.Empty, string.Empty, album_id, file.OpenReadStream());
-                        return Ok(record.Id);
-                    }
+                    var name = file.FileName;
+                    var record = await _storage.WriteData(name, string.Empty, string.Empty, albumId, file.OpenReadStream());
+                    return Ok(record.Id);
                 }
                 else
                 {
@@ -205,24 +218,45 @@ namespace ZeroGalleryApp.Controllers
                     Log.Debug($"[DataController.Upload] Receive {files.Count} files to upload.");
                     foreach (var file in files)
                     {
-                        if (file.Length > 0)
-                        {
-                            var name = file.FileName;
-                            var record = await _storage.WriteData(name, string.Empty, string.Empty, album_id, file.OpenReadStream());
-                            ids[idx_index++] = record.Id;
-                        }
+                        var name = file.FileName;
+                        var record = await _storage.WriteData(name, string.Empty, string.Empty, albumId, file.OpenReadStream());
+                        ids[idx_index++] = record.Id;
                     }
                     return Ok(ids);
                 }
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "[DataController.Upload]");
+                Error(ex, $"[DataController.Upload] Fault upload images to album '{albumId}'");
+                return BadRequest(ex.Message);
             }
-            return BadRequest();
         }
 
-        
+        [HttpDelete("data/{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public IActionResult DeleteData([FromRoute] long id)
+        {
+            if (CanRemoveItem(_storage.GetItemAlbumToken(id)))
+            {
+                _storage.RemoveRecord(id, HasAdminAccess());
+                return Ok();
+            }
+            return Unauthorized();
+        }
+
+        [HttpDelete("album/{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public IActionResult DeleteAlbum([FromRoute] long id)
+        {
+            if (CanRemoveAlbum(_storage.GetAlbumToken(id)))
+            {
+                _storage.RemoveAlbum(id, HasAdminAccess());
+                return Ok();
+            }
+            return Unauthorized();
+        }
 
         private PhysicalFileResult GetBlankFileForDataType(DataType dataType)
         {

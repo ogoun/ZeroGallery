@@ -1,32 +1,74 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using ZeroGallery.Shared;
 using ZeroGallery.Shared.Models;
+using ZeroLevel;
 
 namespace ZeroGalleryApp.Controllers
 {
     public abstract class BaseController
         : Controller
     {
-        public BaseController()
+        private readonly string _uploadToken;
+        private readonly string _masterToken;
+        private readonly bool _existMasterToken;
+        private readonly bool _existUploadToken;
+
+        public BaseController(AppConfig config)
         {
+            _masterToken = config.api_master_token ?? string.Empty;
+            _uploadToken = config.api_write_token ?? string.Empty;
+            _existMasterToken = !string.IsNullOrWhiteSpace(_masterToken);
+            _existUploadToken = !string.IsNullOrWhiteSpace(_uploadToken);
         }
 
-        /*protected async Task SaveToDbCache(string key, byte[] value, TimeSpan expirationPeriod)
+        /// <summary>
+        /// Токены не заданы, всем разрешено всё
+        /// </summary>
+        /// <returns></returns>
+        private bool IsFullAccess() => _existMasterToken == false && _existUploadToken == false;
+        public bool HasAdminAccess() => _existMasterToken && OperationContext.UploadToken!.IsEqual(_masterToken);
+        private bool CanUpload() => _existUploadToken && OperationContext.UploadToken!.IsEqual(_uploadToken);
+        private bool HasAlbumAccess(string token) => _existUploadToken && OperationContext.AccessToken!.IsEqual(token);
+
+        protected void Error(Exception ex, string message)
         {
-            var record = new DBCacheRecord(key) { Value = value, Timestamp = Timestamp.UtcNow, ExpirationTimestamp = Timestamp.UtcNowAddTimeSpan(expirationPeriod) };
-            await Tables.Cache.Write(record);
+            var context = OperationContext;
+            Log.Error(ex, $"{message}. Upload token: '{context.UploadToken}'. Access token: '{context.AccessToken}'");
         }
 
-        protected async Task<T> GetFromDbCache<T>(string key)
-            where T : IBinarySerializable
+        protected bool CanCreateAlbum()
         {
-            var record = (await Tables.Cache.Get(Builders<DBCacheRecord>.Filter.Eq(a => a.Key, key)))?.FirstOrDefault();
-            if (record != null && record.Value != null)
-            {
-                var o = MessageSerializer.Deserialize<T>(record.Value);
-                return o;
-            }
-            return default(T)!;
-        }*/
+            if (IsFullAccess() || HasAdminAccess() || CanUpload()) return true;
+            return false;
+        }
+
+        protected bool CanRemoveAlbum(string albumToken)
+        {
+            if (IsFullAccess() || HasAdminAccess()) return true;
+            if (CanUpload() && (string.IsNullOrWhiteSpace(albumToken) || HasAlbumAccess(albumToken))) return true;
+            return false;
+        }
+
+        protected bool CanRemoveItem(string albumToken)
+        {
+            if (IsFullAccess() || HasAdminAccess()) return true;
+            if (CanUpload() && (string.IsNullOrWhiteSpace(albumToken) || HasAlbumAccess(albumToken))) return true;
+            return false;
+        }
+
+        protected bool  CanUploadImages(string albumToken)
+        {
+            if (IsFullAccess() || HasAdminAccess()) return true;
+            if (CanUpload() && (string.IsNullOrWhiteSpace(albumToken) || HasAlbumAccess(albumToken))) return true;
+            return false;
+        }
+
+        protected bool CanViewImages(string albumToken)
+        {
+            if (IsFullAccess() || HasAdminAccess()) return true;
+            if (string.IsNullOrWhiteSpace(albumToken) || HasAlbumAccess(albumToken)) return true;
+            return false;
+        }
 
         protected OperationContext OperationContext
         {

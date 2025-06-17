@@ -11,6 +11,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZeroGallery.Shared", "ZeroG
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZeroGallery.Shared.Tests", "Tests\ZeroGallery.Shared.Tests\ZeroGallery.Shared.Tests.csproj", "{FF91AD0E-679E-4E24-B5D7-C2583FA971B0}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Migrations", "Migrations", "{CC3BB6B8-C883-4320-86DE-59516C4ACF3A}"
+	ProjectSection(SolutionItems) = preProject
+		v0.0-v1.0.txt = v0.0-v1.0.txt
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

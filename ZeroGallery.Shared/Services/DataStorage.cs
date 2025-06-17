@@ -4,33 +4,75 @@ using ZeroGallery.Shared.Models;
 using ZeroGallery.Shared.Models.DB;
 using ZeroGallery.Shared.Services.DB;
 using ZeroGalleryApp;
+using ZeroLevel;
 using ZeroLevel.Services.FileSystem;
 using ZeroLevel.Services.Utils;
 
 namespace ZeroGallery.Shared.Services
 {
+    /// <summary>
+    /// Отвечает за хранение данных
+    /// </summary>
     public class DataStorage
         : IDisposable
     {
+        public const string VERSION = "1.0";
+
+        /// <summary>
+        /// Максимальный размер стороны изображения для превью
+        /// </summary>
         private const int MAX_PREVIEW_SIDE_SIZE = 512;
+        /// <summary>
+        /// Количество подкаталогов в хранилище
+        /// </summary>
         private const int SHARDS_COUNT = 255;
+        /// <summary>
+        /// Размер буфера при переносе данных из потока в поток
+        /// </summary>
         protected const int DEFAULT_STREAM_BUFFER_SIZE = 16384;
+        /// <summary>
+        /// Локер на генерацию нового пути
+        /// </summary>
         private readonly object _filePathGenerationLock = new object();
-
+        /// <summary>
+        /// Счетчики файлов в подкаталогах, для назначения имен файлов
+        /// </summary>
         private readonly Dictionary<int, int> _shardCounters = new Dictionary<int, int>();
-
-        private readonly DataAlbumRepository _albums = new DataAlbumRepository();
-        private readonly DataRecordRepository _records = new DataRecordRepository();
-
+        /// <summary>
+        /// Репозиторий альбомов
+        /// </summary>
+        private readonly DataAlbumRepository _albums;
+        /// <summary>
+        /// Репозиторий метаданных файлов
+        /// </summary>
+        private readonly DataRecordRepository _records;
+        /// <summary>
+        /// Каталог данных
+        /// </summary>
         private readonly string _dataFolder;
+        /// <summary>
+        /// Каталог превью
+        /// </summary>
         private readonly string _thumbsFolder;
-
+        /// <summary>
+        /// Для форматирования имени файла
+        /// </summary>
         private readonly string _fileNameFormat;
-
+        /// <summary>
+        /// Конвертация изображений в jpg формат из других форматов для превью
+        /// </summary>
         private readonly IImageConverter _imageConverter;
 
-        public DataStorage(AppConfig config)
+        private readonly Scavenger _scavenger;
+
+        public DataStorage(AppConfig config,
+            DataAlbumRepository albumRepository,
+            DataRecordRepository recordsRepository)
         {
+            if (albumRepository == null) throw new ArgumentNullException(nameof(albumRepository));
+            if (recordsRepository == null) throw new ArgumentNullException(nameof(recordsRepository));
+
+            // Количество нулей в int.max
             var zerosCount = Math.Floor(Math.Log10(int.MaxValue) + 1);
             _fileNameFormat = $"d{zerosCount}";
 
@@ -40,7 +82,14 @@ namespace ZeroGallery.Shared.Services
 
             Directory.CreateDirectory(_dataFolder);
             Directory.CreateDirectory(_thumbsFolder);
+
+            _albums = albumRepository;
+            _records = recordsRepository;
+
             LoadCounter();
+
+            _scavenger = new Scavenger(_albums, _records, this);
+            _scavenger.Run();
         }
 
         private void LoadCounter()
@@ -79,6 +128,73 @@ namespace ZeroGallery.Shared.Services
             LoadCounter();
         }
 
+        /// <summary>
+        /// Удаление записи
+        /// </summary>
+        /// <param name="recordId"></param>
+        public void RemoveRecord(long recordId, bool isAdmin)
+        {
+            var record = _records.SelectBy(r => r.Id == recordId)?.FirstOrDefault();
+            if (record != null)
+            {
+                try
+                {
+                    if (record.AlbumId != -1)
+                    {
+                        var album = _albums.Single(a => a.Id == record.AlbumId);
+                        if (album.AllowRemoveData == false && isAdmin == false)
+                        {
+                            throw new Exception("Delete files from album not allowed");
+                        }
+                    }
+                    record.InRemoving = true;
+                    _records.Update(record);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, $"[DataStorage.RemoveRecord] Failed to mark the record '{recordId}' for removing");
+                }
+            }
+            else
+            {
+                throw new Exception($"File '{recordId}' not found");
+            }
+        }
+
+        /// <summary>
+        /// Удаление альбома
+        /// </summary>
+        public void RemoveAlbum(long albumId, bool isAdmin)
+        {
+            var album = _albums.SelectBy(r => r.Id == albumId)?.FirstOrDefault();
+            if (album != null)
+            {
+                if (album.AllowRemoveData == false && isAdmin == false)
+                {
+                    throw new Exception("Delete files from album not allowed");
+                }
+
+                var albumRecords = _records.SelectBy(r => r.AlbumId == albumId)?.ToList();
+                if (albumRecords != null)
+                {
+                    foreach (var record in albumRecords)
+                    {
+                        record.InRemoving = true;
+                        _records.Update(record);
+                    }
+                }
+                album.InRemoving = true;
+                _albums.Update(album);
+            }
+            else
+            {
+                throw new Exception($"Album '{albumId}' not found");
+            }
+        }
+
+        /// <summary>
+        /// Создание альбома
+        /// </summary>
         public DataAlbum AppendAlbum(string name, string description, string token)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -95,6 +211,9 @@ namespace ZeroGallery.Shared.Services
             return r;
         }
 
+        /// <summary>
+        /// Запись файла
+        /// </summary>
         public async Task<DataRecord> WriteData(string name, string description,
             string tags, long albumId, Stream dataStream)
         {
@@ -167,7 +286,7 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public IEnumerable<DataAlbum> GetAlbums()
         {
-            return _albums.SelectAll();
+            return _albums.SelectBy(r => r.InRemoving == false);
         }
 
         /// <summary>
@@ -175,7 +294,7 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public IEnumerable<DataRecord> GetAllData()
         {
-            return _records.SelectAll();
+            return _records.SelectBy(r => r.InRemoving == false);
         }
 
         /// <summary>
@@ -183,7 +302,7 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public IEnumerable<DataRecord> GetDataWithoutAlbums()
         {
-            return _records.SelectBy(r => r.AlbumId == -1);
+            return _records.SelectBy(r => r.AlbumId == -1 && r.InRemoving == false);
         }
 
         /// <summary>
@@ -192,7 +311,7 @@ namespace ZeroGallery.Shared.Services
         /// <param name="albumId"></param>
         public IEnumerable<DataRecord> GetDataByAlbum(long albumId)
         {
-            return _records.SelectBy(r => r.AlbumId == albumId);
+            return _records.SelectBy(r => r.AlbumId == albumId && r.InRemoving == false);
         }
 
         /// <summary>
@@ -200,7 +319,12 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public DataFileInfo GetPreview(long id)
         {
-            var rec = _records.Single(c => c.Id == id);
+            var rec = _records.Single(c => c.Id == id && c.InRemoving == false);
+            return GetPreview(rec);
+        }
+
+        public DataFileInfo GetPreview(DataRecord rec)
+        {
             if (rec != null)
             {
                 var relativePath = GetRelativePath(rec);
@@ -222,7 +346,12 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public DataFileInfo GetData(long id)
         {
-            var rec = _records.Single(c => c.Id == id);
+            var rec = _records.Single(c => c.Id == id && c.InRemoving == false);
+            return GetData(rec);
+        }
+
+        public DataFileInfo GetData(DataRecord rec)
+        {
             var relativePath = GetRelativePath(rec);
             if (string.IsNullOrWhiteSpace(relativePath) == false)
             {
@@ -236,30 +365,30 @@ namespace ZeroGallery.Shared.Services
         }
 
         /// <summary>
-        /// Проверка наличия доступа к альбому
+        /// Получение токена для доступа к альбому
         /// </summary>
-        public bool HasAccessToAlbum(long albumId, string token)
+        public string GetAlbumToken(long albumId)
         {
+            if (albumId == -1) return string.Empty;
             var album = _albums.Single(a => a.Id == albumId);
-            return album?.Token.IsEqual(token) ?? false;
+            if (album == null) throw new Exception($"Album '{albumId}' does not exists");
+            return album.Token!;
         }
 
         /// <summary>
-        /// Проверка наличия доступа к файлу
+        /// Получение токена для доступа к файлу, если он относится к альбому
         /// </summary>
-        public bool HasAccessToItem(long id, string token)
+        public string GetItemAlbumToken(long id)
         {
-            var rec = _records.Single(c => c.Id == id);
+            var rec = _records.Single(c => c.Id == id && c.InRemoving == false);
             if (rec != null)
             {
-                if (rec.AlbumId == -1) return true;
+                if (rec.AlbumId == -1) return string.Empty;
                 var album = _albums.Single(a => a.Id == rec.AlbumId);
-                if (album != null)
-                {
-                    return album.Token.IsEqual(token);
-                }
+                if (album == null) throw new Exception($"Album '{rec.AlbumId}' does not exists");
+                return album.Token!;
             }
-            return false;
+            throw new Exception($"File '{id}' does not exists");
         }
 
         /// <summary>

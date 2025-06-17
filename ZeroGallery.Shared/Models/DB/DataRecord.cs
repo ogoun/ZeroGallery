@@ -62,6 +62,11 @@ namespace ZeroGallery.Shared.Models.DB
         /// </summary>
         public string Tags { get; set; }
 
+        /// <summary>
+        /// Указывает что запись находится на удалении
+        /// </summary>
+        public bool InRemoving { get; set; }
+
         public override bool Equals(object? obj)
         {
             return this.Equals(obj as DataRecord);

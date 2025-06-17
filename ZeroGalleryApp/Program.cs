@@ -1,18 +1,65 @@
 ﻿using Microsoft.Extensions.FileProviders;
 using System.Net;
 using ZeroGallery.Shared.Services;
+using ZeroGallery.Shared.Services.DB;
 using ZeroLevel;
+using IConfiguration = ZeroLevel.IConfiguration;
 
 namespace ZeroGalleryApp
 {
     public class Program
     {
         const int PORT = 80;
+
+        private static void UpdateConfigFromEnvironments(AppConfig config, IConfiguration env)
+        {
+            if (env.Contains("api_master_token"))
+            {
+                var val = env["api_master_token"].FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(val) == false)
+                {
+                    config.api_master_token = val;
+                }
+            }
+
+            if (env.Contains("api_write_token"))
+            {
+                var val = env["api_write_token"].FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(val) == false)
+                {
+                    config.api_write_token = val;
+                }
+            }
+
+            if (env.Contains("data_folder"))
+            {
+                var val = env["data_folder"].FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(val) == false)
+                {
+                    config.data_folder = val;
+                }
+            }
+
+            if (env.Contains("db_path"))
+            {
+                var val = env["db_path"].FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(val) == false)
+                {
+                    config.db_path = val;
+                }
+            }
+        }
+
         public static void Main(string[] args)
         {
             Log.AddConsoleLogger();
-            
+
             var config = Configuration.ReadFromIniFile("config.ini").Bind<AppConfig>();
+            var env_config = Configuration.ReadFromEnvironmentVariables();
+            if (env_config != null)
+            {
+                UpdateConfigFromEnvironments(config, env_config);
+            }
 
             var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +84,12 @@ namespace ZeroGalleryApp
                 });
             });
 
+            builder.Services.AddSingleton(new DataAlbumRepository(config.db_path));
+
+            builder.Services.AddSingleton(new DataRecordRepository(config.db_path));
+
+            builder.Services.AddSingleton<Scavenger>();
+
             builder.Services.AddSingleton(config);
 
             builder.Services.AddSingleton<DataStorage>();
@@ -48,6 +101,8 @@ namespace ZeroGalleryApp
             app.UseCors("AllowAll");
 
             app.UseTokenEnrichMiddleware();
+
+            app.UseMiddleware<GlobalExceptionMiddleware>();
 
             var fileProvider = new PhysicalFileProvider(Path.Combine(builder.Environment.ContentRootPath, "web"));
             DefaultFilesOptions defoptions = new();

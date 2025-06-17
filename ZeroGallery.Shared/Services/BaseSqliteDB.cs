@@ -1,11 +1,8 @@
 ﻿using SQLite;
 using System.Linq.Expressions;
 using ZeroGallery.Shared.Contracts;
-using ZeroGallery.Shared.Models.DB;
 using ZeroLevel;
-using ZeroLevel.DocumentObjectModel.Flow;
 using ZeroLevel.Services.FileSystem;
-using ZeroLevel.Services.Utils;
 
 namespace ZeroGallery.Shared.Services
 {

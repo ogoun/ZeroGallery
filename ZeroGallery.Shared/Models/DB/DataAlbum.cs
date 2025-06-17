@@ -31,6 +31,17 @@ namespace ZeroGallery.Shared.Models.DB
         /// </summary>
         public string Token { get; set; } = default!;
 
+        /// <summary>
+        /// Разрешение на удаление данных (и соотвественно самого альбома) с токеном доступа к альбома
+        /// Мастер токен позволяет удалить альбом и данные даже если флаг задан как false
+        /// </summary>
+        public bool AllowRemoveData { get; set; }
+
+        /// <summary>
+        /// Альбом находится в процессе удаления
+        /// </summary>
+        public bool InRemoving { get; set; }
+
         public override bool Equals(object? obj)
         {
             return this.Equals(obj as DataAlbum);
