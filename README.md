@@ -107,3 +107,71 @@ To run in Linux, you will need to install sqlite3.
 ```shell
 apt install libsqlite3-dev
 ```
+### API
+#### Data Structures
+##### Album
+- id - type long, album identifier
+- imagePreviewId - type long, identifier of the image for album preview
+- name - album name
+- description - album description
+- isProtected - type bool, true if the album is protected by token
+```json
+{
+  "id": 1,
+  "imagePreviewId": -1,
+  "name": "Photo2025",
+  "description": "Photos 2025",
+  "isProtected": false
+}
+```
+##### File Metadata
+- id - type long, file identifier
+- albumId - long, identifier of the album to which the file belongs, if the file is outside an album, the value will be -1. All files outside of albums are publicly accessible.
+- size - file size in bytes
+- createdTimestamp - file upload date (unix timestamp)
+- name - file name
+- extension - extension (determined automatically by signature)
+- description - description
+- mimeType - determined automatically by signature
+- tags - list of tags separated by semicolons
+```json
+{
+  "id": 1,
+  "albumId": -1,
+  "size": 0,
+  "createdTimestamp": 1749843407768,
+  "name": "image.jpg",
+  "extension": ".jpg",
+  "description": "",
+  "mimeType": "image/jpeg",
+  "tags": ""
+}
+```
+##### Album Creation
+- name - album name
+- description - album description
+- token - album access token, if left empty, the album will be accessible to everyone
+```json
+{
+	"name": "Photo2025",
+	"description": "Photos 2025",
+	"token": "super_secret_password!!!"
+}
+```
+#### Access Tokens
+Passed in request headers.
+- **X-ZERO-UPLOAD-TOKEN** - token that allows file creation and file uploads
+- **X-ZERO-ACCESS-TOKEN** - token that allows access to the album
+Accordingly, to write to an album protected by a token, you need to specify both tokens, both for album access and for write operation permissions.
+### API Methods
+| METHOD | PATH                       | DESCRIPTION                                                                                                                                                                                                            |
+| ------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | **/api/albums**            | returns list of albums                                                                                                                                                                                                 |
+| GET    | **/api/data**              | returns list of files not linked to albums                                                                                                                                                                            |
+| GET    | **/api/album/{id}/data**   | returns list of files for the specified album                                                                                                                                                                         |
+| GET    | **/api/preview/{id}**      | get small size preview for file (currently available for .png, .jpg, .bmp, .gif, .heic, .ico, .svg, .tiff, .webp), if file belongs to an album, requires **X-ZERO-ACCESS-TOKEN** header                            |
+| GET    | **/api/data/{id}**         | get contents of the specified file, if file belongs to an album, requires **X-ZERO-ACCESS-TOKEN** header                                                                                                              |
+| POST   | **/api/album**             | create album, transmitted fields are listed in the Album Creation section in data structures, requires **X-ZERO-UPLOAD-TOKEN** header                                                                                |
+| POST   | **/api/upload/{albumId?}** | upload new file, if albumId is not specified or equals -1, file will be uploaded to public visibility area outside of albums and accessible to everyone, requires **X-ZERO-UPLOAD-TOKEN** header                      |
+| DELETE | **/api/data/{id}**         | deletes the specified file                                                                                                                                                                                            |
+| DELETE | **/api/album/{id}**        | deletes the specified album                                                                                                                                                                                           |
