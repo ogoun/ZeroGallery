@@ -2,7 +2,6 @@
 using System.Linq.Expressions;
 using ZeroGallery.Shared.Contracts;
 using ZeroLevel;
-using ZeroLevel.Services.FileSystem;
 
 namespace ZeroGallery.Shared.Services
 {
@@ -12,9 +11,9 @@ namespace ZeroGallery.Shared.Services
     {
         protected SQLiteConnection _db;
         protected readonly TableQuery<T> _table;
-        public BaseSqliteDB(string name)
+        public BaseSqliteDB(string path, string name)
         {
-            _db = new SQLiteConnection(PrepareDb(name));
+            _db = new SQLiteConnection(PrepareDb(path, name));
             CreateTable();
             _table = _db.Table<T>();
         }
@@ -92,13 +91,19 @@ namespace ZeroGallery.Shared.Services
             return _db.Update(record);
         }
 
-        protected static string PrepareDb(string path)
+        protected static string PrepareDb(string path, string name)
         {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                path = "db";
+            }
             if (Path.IsPathRooted(path) == false)
             {
-                path = Path.Combine(FSUtils.GetAppLocalDbDirectory(), path);
+                path = Path.Combine(Configuration.BaseDirectory, path);
             }
-            return Path.GetFullPath(path);
+            var result = Path.GetFullPath(path);
+            Directory.CreateDirectory(result);
+            return Path.Combine(result, name);
         }
 
         protected abstract void DisposeStorageData();

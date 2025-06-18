@@ -739,11 +739,14 @@
             color: var(--text-primary);
             font-size: clamp(1.125rem, 3vw, 1.25rem);
             font-weight: 600;
-            padding-right: var(--spacing-xl);
+            padding-right: var(--spacing-lg);
+            word-wrap: break-word;
         }
 
         .modal-field {
             margin-bottom: var(--spacing-lg);
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .modal-label {
@@ -775,6 +778,57 @@
             .modal input::placeholder {
                 color: var(--text-secondary);
             }
+
+        /* Checkbox styling */
+        .modal-checkbox-field {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: var(--spacing-lg);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .modal-checkbox {
+            -webkit-appearance: checkbox;
+            appearance: checkbox;
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            max-width: 20px;
+            margin: 2px 0 0 0;
+            padding: 0;
+            cursor: pointer;
+            accent-color: var(--accent);
+            flex-shrink: 0;
+            flex-grow: 0;
+        }
+
+        .modal-checkbox-wrapper {
+            flex: 1;
+            min-width: 0;
+            overflow: visible;
+        }
+
+        .modal-checkbox-label {
+            color: var(--text-primary);
+            font-size: clamp(0.875rem, 2vw, 1rem);
+            user-select: none;
+            line-height: 1.5;
+            cursor: pointer;
+            display: block;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .modal-hint {
+            font-size: clamp(0.75rem, 2vw, 0.8125rem);
+            color: var(--text-secondary);
+            margin-top: var(--spacing-xs);
+            line-height: 1.4;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
 
         .modal-actions {
             display: flex;
@@ -1243,8 +1297,21 @@
                 margin-bottom: var(--spacing-md);
             }
 
+            .modal-field {
+                margin-bottom: var(--spacing-md);
+            }
+
+            .modal-checkbox-field {
+                gap: var(--spacing-sm);
+            }
+
+            .modal-hint {
+                font-size: 0.75rem;
+            }
+
             .modal-actions {
                 flex-direction: column;
+                margin-top: var(--spacing-lg);
             }
 
             .modal button {
@@ -1505,6 +1572,18 @@
                        placeholder="Оставьте пустым для открытого доступа"
                        autocomplete="off">
             </div>
+            <div class="modal-checkbox-field">
+                <input type="checkbox"
+                       id="albumAllowRemoveDataInput"
+                       class="modal-checkbox"
+                       checked>
+                <div class="modal-checkbox-wrapper">
+                    <label for="albumAllowRemoveDataInput"
+                           class="modal-checkbox-label"
+                           data-i18n="allowRemoveData">Разрешить удаление данных</label>
+                    <div class="modal-hint" data-i18n="allowRemoveDataHint">Если отключено, файлы в альбоме нельзя будет удалить</div>
+                </div>
+            </div>
             <div class="modal-actions">
                 <button onclick="createAlbum()" data-i18n="create">Создать</button>
                 <button class="secondary" onclick="closeModal('addAlbumModal')" data-i18n="cancel">Отмена</button>
@@ -1570,6 +1649,8 @@
                 descriptionPlaceholder: 'Краткое описание альбома',
                 accessToken: 'Токен доступа',
                 accessTokenPlaceholder: 'Оставьте пустым для открытого доступа',
+                allowRemoveData: 'Разрешить удаление данных',
+                allowRemoveDataHint: 'Если отключено, файлы в альбоме нельзя будет удалить',
                 create: 'Создать',
                 cancel: 'Отмена',
                 download: 'Скачать',
@@ -1623,6 +1704,8 @@
                 descriptionPlaceholder: 'Brief album description',
                 accessToken: 'Access token',
                 accessTokenPlaceholder: 'Leave empty for public access',
+                allowRemoveData: 'Allow data deletion',
+                allowRemoveDataHint: 'If disabled, files in the album cannot be deleted',
                 create: 'Create',
                 cancel: 'Cancel',
                 download: 'Download',
@@ -1867,24 +1950,24 @@
                     const albumTile = document.createElement('div');
                     albumTile.className = 'album-tile';
                     albumTile.innerHTML = `
-                                ${album.isProtected ? '<span class="lock-icon">🔒</span>' : ''}
-                                <button class="album-delete-btn" onclick="showDeleteConfirm('album', ${album.id}, '${escapeHtml(album.name)}'); event.stopPropagation();" title="${t('delete')}">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="3 6 5 6 21 6"></polyline>
-                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                                    </svg>
-                                </button>
-                                <img class="album-tile-image"
-                                     src="${album.imagePreviewId > 0 ? `${API_BASE}/preview/${album.imagePreviewId}` : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='}"
-                                     alt="${album.name}"
-                                     onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='"
-                                     loading="lazy">
-                                <div class="album-tile-info">
-                                    <div class="album-tile-name" title="${album.name}">${album.name}</div>
-                                </div>
-                            `;
+                                    ${album.isProtected ? '<span class="lock-icon">🔒</span>' : ''}
+                                    <button class="album-delete-btn" onclick="showDeleteConfirm('album', ${album.id}, '${escapeHtml(album.name)}'); event.stopPropagation();" title="${t('delete')}">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                                        </svg>
+                                    </button>
+                                    <img class="album-tile-image"
+                                         src="${album.imagePreviewId > 0 ? `${API_BASE}/preview/${album.imagePreviewId}` : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='}"
+                                         alt="${album.name}"
+                                         onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='"
+                                         loading="lazy">
+                                    <div class="album-tile-info">
+                                        <div class="album-tile-name" title="${album.name}">${album.name}</div>
+                                    </div>
+                                `;
                     albumTile.onclick = () => selectAlbum(album.id, album.isProtected);
                     albumTile.dataset.albumId = album.id;
                     albumsList.appendChild(albumTile);
@@ -1979,41 +2062,41 @@
                 const isMedia = item.mimeType.startsWith('image/') || item.mimeType.startsWith('video/');
 
                 galleryItem.innerHTML = `
-                            <img class="gallery-item-preview"
-                                 src="${API_BASE}/preview/${item.id}"
-                                 alt="${item.name}"
-                                 onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5GaWxlPC90ZXh0Pjwvc3ZnPg=='"
-                                 loading="lazy">
-                            <div class="gallery-item-info">
-                                <div class="gallery-item-name" title="${item.name}">${item.name}</div>
-                                <div class="gallery-item-actions">
-                                    <button class="action-btn" onclick="downloadFile(${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('download')}">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                            <polyline points="7 10 12 15 17 10"></polyline>
-                                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                                        </svg>
-                                    </button>
-                                    <button class="action-btn" onclick="shareFile(${item.id}); event.stopPropagation();" title="${t('share')}">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <circle cx="18" cy="5" r="3"></circle>
-                                            <circle cx="6" cy="12" r="3"></circle>
-                                            <circle cx="18" cy="19" r="3"></circle>
-                                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                                        </svg>
-                                    </button>
-                                    <button class="action-btn delete-btn" onclick="showDeleteConfirm('file', ${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('delete')}">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <polyline points="3 6 5 6 21 6"></polyline>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                                            <line x1="14" y1="11" x2="14" y2="17"></line>
-                                        </svg>
-                                    </button>
+                                <img class="gallery-item-preview"
+                                     src="${API_BASE}/preview/${item.id}"
+                                     alt="${item.name}"
+                                     onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5GaWxlPC90ZXh0Pjwvc3ZnPg=='"
+                                     loading="lazy">
+                                <div class="gallery-item-info">
+                                    <div class="gallery-item-name" title="${item.name}">${item.name}</div>
+                                    <div class="gallery-item-actions">
+                                        <button class="action-btn" onclick="downloadFile(${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('download')}">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                <polyline points="7 10 12 15 17 10"></polyline>
+                                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                                            </svg>
+                                        </button>
+                                        <button class="action-btn" onclick="shareFile(${item.id}); event.stopPropagation();" title="${t('share')}">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="18" cy="5" r="3"></circle>
+                                                <circle cx="6" cy="12" r="3"></circle>
+                                                <circle cx="18" cy="19" r="3"></circle>
+                                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                                            </svg>
+                                        </button>
+                                        <button class="action-btn delete-btn" onclick="showDeleteConfirm('file', ${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('delete')}">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="3 6 5 6 21 6"></polyline>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        `;
+                            `;
 
                 if (isMedia) {
                     galleryItem.onclick = () => viewMedia(item);
@@ -2033,11 +2116,11 @@
                 viewerContent.innerHTML = `<img src="${API_BASE}/data/${item.id}" alt="${item.name}">`;
             } else if (item.mimeType.startsWith('video/')) {
                 viewerContent.innerHTML = `
-                            <video controls autoplay>
-                                <source src="${API_BASE}/data/${item.id}" type="${item.mimeType}">
-                                ${t('videoPlaybackError')}
-                            </video>
-                        `;
+                                <video controls autoplay>
+                                    <source src="${API_BASE}/data/${item.id}" type="${item.mimeType}">
+                                    ${t('videoPlaybackError')}
+                                </video>
+                            `;
             }
 
             showModal('viewerModal');
@@ -2276,6 +2359,7 @@
             const name = document.getElementById('albumNameInput').value.trim();
             const description = document.getElementById('albumDescriptionInput').value.trim();
             const token = document.getElementById('albumAccessTokenInput').value.trim();
+            const allowRemoveData = document.getElementById('albumAllowRemoveDataInput').checked;
             const uploadToken = document.getElementById('uploadToken').value;
 
             if (!name) {
@@ -2293,7 +2377,8 @@
                     body: JSON.stringify({
                         name: name,
                         description: description,
-                        token: token
+                        token: token,
+                        allowRemoveData: allowRemoveData
                     })
                 });
 
@@ -2306,6 +2391,7 @@
                     document.getElementById('albumNameInput').value = '';
                     document.getElementById('albumDescriptionInput').value = '';
                     document.getElementById('albumAccessTokenInput').value = '';
+                    document.getElementById('albumAllowRemoveDataInput').checked = true;
                 } else {
                     showNotification(t('albumCreateError'), 'error');
                 }

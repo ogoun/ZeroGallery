@@ -7,7 +7,7 @@ namespace ZeroGallery.Shared.Services.DB
     {
         private readonly object _locker = new object();
         public DataAlbumRepository(string db_root)
-            : base(Path.Combine(db_root, "groups"))
+            : base(db_root, "groups")
         {
         }
 

@@ -195,7 +195,7 @@ namespace ZeroGallery.Shared.Services
         /// <summary>
         /// Создание альбома
         /// </summary>
-        public DataAlbum AppendAlbum(string name, string description, string token)
+        public DataAlbum AppendAlbum(string name, string description, string token, bool allowRemoveData)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -205,7 +205,8 @@ namespace ZeroGallery.Shared.Services
             {
                 Name = name,
                 Description = description,
-                Token = token
+                Token = token,
+                AllowRemoveData = allowRemoveData,
             };
             var r = _albums.AppendAndGet(album);
             return r;

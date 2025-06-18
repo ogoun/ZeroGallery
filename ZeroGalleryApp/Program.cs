@@ -9,7 +9,7 @@ namespace ZeroGalleryApp
 {
     public class Program
     {
-        const int PORT = 80;
+        const int DEFAULT_PORT = 80;
 
         private static void UpdateConfigFromEnvironments(AppConfig config, IConfiguration env)
         {
@@ -48,6 +48,11 @@ namespace ZeroGalleryApp
                     config.db_path = val;
                 }
             }
+
+            if (env.Contains("port"))
+            {
+                config.port = env.First<int>("port");
+            }
         }
 
         public static void Main(string[] args)
@@ -61,6 +66,8 @@ namespace ZeroGalleryApp
                 UpdateConfigFromEnvironments(config, env_config);
             }
 
+            var port = config.port > 0 ? config.port : DEFAULT_PORT;
+
             var builder = WebApplication.CreateBuilder(args);
 
             builder.WebHost.ConfigureKestrel((context, serverOptions) =>
@@ -69,10 +76,10 @@ namespace ZeroGalleryApp
                 serverOptions.Configure(kestrelSection)
                     .Endpoint("HTTP", listenOptions =>
                     {
-                        serverOptions.Listen(IPAddress.Any, PORT);
+                        serverOptions.Listen(IPAddress.Any, port);
                     });
             });
-            builder.WebHost.UseKestrel().UseUrls($"http://0.0.0.0:{PORT}");
+            builder.WebHost.UseKestrel().UseUrls($"http://0.0.0.0:{port}");
 
             builder.Services.AddCors(options =>
             {

@@ -169,7 +169,7 @@ namespace ZeroGalleryApp.Controllers
             {
                 if (CanCreateAlbum())
                 {
-                    var album = _storage.AppendAlbum(info.Name, info.Description, info.Token);
+                    var album = _storage.AppendAlbum(info.Name, info.Description, info.Token, info.AllowRemoveData);
                     Log.Info($"[DataController.CreateAlbum] Album '{info.Name}' created");
                     return Ok(AlbumMapper.Map(album));
                 }
