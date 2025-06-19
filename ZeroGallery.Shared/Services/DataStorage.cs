@@ -80,6 +80,15 @@ namespace ZeroGallery.Shared.Services
             _thumbsFolder = Path.Combine(config.data_folder, "thumbs");
             _imageConverter = new UnifiedImageConverter();
 
+            if (Path.IsPathRooted(_dataFolder) == false)
+            {
+                _dataFolder = Path.Combine(ZeroLevel.Configuration.BaseDirectory, _dataFolder);
+            }
+            if (Path.IsPathRooted(_thumbsFolder) == false)
+            {
+                _thumbsFolder = Path.Combine(ZeroLevel.Configuration.BaseDirectory, _thumbsFolder);
+            }
+
             Directory.CreateDirectory(_dataFolder);
             Directory.CreateDirectory(_thumbsFolder);
 
@@ -266,6 +275,62 @@ namespace ZeroGallery.Shared.Services
                 }
                 // Preview ------------------------
             }
+
+            // Convert .wmv and .avi  to .mp4 for suport in modern browsers
+            if (imageInfo.IsVideo())
+            {
+                try
+                {
+                    switch (imageInfo.Extension)
+                    {
+                        case ".wmv":
+                        case ".avi":
+                        case ".mov":
+                        case ".mkv":
+                            var output = FSUtils.GetAppLocalTemporaryFile() + ".mp4";
+                            var succsessfully_convert = await VideoConverter.ConvertToMp4Async(dataFilePath, output);
+                            if (succsessfully_convert)
+                            {
+                                File.Move(output, dataFilePath, true);
+                                imageInfo.Extension = ".mp4";
+                                imageInfo.MimeType = "video/mp4";
+                            }
+                            else
+                            {
+                                Log.Warning("[DataStorage.WriteData] Can't convert video file to .mp4");
+                            }
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "[DataStorage.WriteData] Fault convert video file to .mp4");
+                }
+
+                // Preview к видео
+                var tempFileSource = dataFilePath + ".mp4"; // т.к. ffmpeg не осиливает файлы без расширения
+                var tempFileOutput = thumbFilePath + ".jpg";
+                try
+                {
+                    File.Move(dataFilePath, tempFileSource, true);
+                    if (await VideoThumbnailService.GenerateThumbnailAsync(tempFileSource, tempFileOutput))
+                    {
+                        File.Move(tempFileOutput, thumbFilePath, true);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "[DataStorage.WriteData] Fault create preview for video file");
+                }
+                finally
+                {
+                    if (!File.Exists(dataFilePath) && File.Exists(tempFileSource))
+                    {
+                        File.Move(tempFileSource, dataFilePath, true);
+                    }
+                }
+            }
+
             var record = new DataRecord
             {
                 CreatedTimestamp = timestamp,

@@ -7,12 +7,28 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="FFMpegCore" Version="5.2.0" />
     <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.6.0" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.9" />
     <PackageReference Include="SkiaSharp" Version="3.119.0" />
     <PackageReference Include="sqlite-net-static" Version="1.9.172" />
     <PackageReference Include="Svg.Skia" Version="3.0.3" />
     <PackageReference Include="ZeroLevel" Version="4.0.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="runtimes\linux-64\ffmpeg-6.1-linux-64.zip">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="runtimes\linux-64\ffprobe-6.1-linux-64.zip">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="runtimes\windows-64\ffmpeg-6.1-win-64.zip">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="runtimes\windows-64\ffprobe-6.1-win-64.zip">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

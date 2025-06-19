@@ -59,6 +59,8 @@ namespace ZeroGalleryApp
         {
             Log.AddConsoleLogger();
 
+            FFmpegHelper.ConfigureFFmpeg();
+
             var config = Configuration.ReadFromIniFile("config.ini").Bind<AppConfig>();
             var env_config = Configuration.ReadFromEnvironmentVariables();
             if (env_config != null)

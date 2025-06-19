@@ -1627,6 +1627,17 @@
         let currentZoom = 1;
         let zoomTimeout = null;
 
+        // File type constants
+        const IMAGE_EXTENSIONS = ['.png', '.jpg', '.bmp', '.gif', '.heic', '.ico', '.svg', '.tiff', '.webp'];
+        const VIDEO_EXTENSIONS = ['.mov', '.mp4', '.avi', '.webm', '.wmv', '.mkv'];
+        // Images that need preview for viewing (browsers don't support these formats natively)
+        const PREVIEW_ONLY_IMAGES = ['.heic', '.tiff'];
+
+        // Note: Browser video format support varies:
+        // - Most modern browsers support: .mp4, .webm
+        // - Limited support: .mov (mainly Safari), .avi, .wmv (generally not supported)
+        // For unsupported formats, consider server-side transcoding to .mp4 or .webm
+
         // Translation system
         const translations = {
             ru: {
@@ -1756,6 +1767,18 @@
             } catch (e) {
                 return false;
             }
+        }
+
+        // Check if file is image
+        function isImage(extension) {
+            if (!extension) return false;
+            return IMAGE_EXTENSIONS.includes(extension.toLowerCase());
+        }
+
+        // Check if file is video
+        function isVideo(extension) {
+            if (!extension) return false;
+            return VIDEO_EXTENSIONS.includes(extension.toLowerCase());
         }
 
         // Update all translations on page
@@ -1950,24 +1973,24 @@
                     const albumTile = document.createElement('div');
                     albumTile.className = 'album-tile';
                     albumTile.innerHTML = `
-                                    ${album.isProtected ? '<span class="lock-icon">🔒</span>' : ''}
-                                    <button class="album-delete-btn" onclick="showDeleteConfirm('album', ${album.id}, '${escapeHtml(album.name)}'); event.stopPropagation();" title="${t('delete')}">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <polyline points="3 6 5 6 21 6"></polyline>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                                            <line x1="14" y1="11" x2="14" y2="17"></line>
-                                        </svg>
-                                    </button>
-                                    <img class="album-tile-image"
-                                         src="${album.imagePreviewId > 0 ? `${API_BASE}/preview/${album.imagePreviewId}` : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='}"
-                                         alt="${album.name}"
-                                         onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='"
-                                         loading="lazy">
-                                    <div class="album-tile-info">
-                                        <div class="album-tile-name" title="${album.name}">${album.name}</div>
-                                    </div>
-                                `;
+                                        ${album.isProtected ? '<span class="lock-icon">🔒</span>' : ''}
+                                        <button class="album-delete-btn" onclick="showDeleteConfirm('album', ${album.id}, '${escapeHtml(album.name)}'); event.stopPropagation();" title="${t('delete')}">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="3 6 5 6 21 6"></polyline>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                                            </svg>
+                                        </button>
+                                        <img class="album-tile-image"
+                                             src="${album.imagePreviewId > 0 ? `${API_BASE}/preview/${album.imagePreviewId}` : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='}"
+                                             alt="${album.name}"
+                                             onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='"
+                                             loading="lazy">
+                                        <div class="album-tile-info">
+                                            <div class="album-tile-name" title="${album.name}">${album.name}</div>
+                                        </div>
+                                    `;
                     albumTile.onclick = () => selectAlbum(album.id, album.isProtected);
                     albumTile.dataset.albumId = album.id;
                     albumsList.appendChild(albumTile);
@@ -2059,44 +2082,44 @@
                 const galleryItem = document.createElement('div');
                 galleryItem.className = 'gallery-item';
 
-                const isMedia = item.mimeType.startsWith('image/') || item.mimeType.startsWith('video/');
+                const isMedia = isImage(item.extension) || isVideo(item.extension);
 
                 galleryItem.innerHTML = `
-                                <img class="gallery-item-preview"
-                                     src="${API_BASE}/preview/${item.id}"
-                                     alt="${item.name}"
-                                     onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5GaWxlPC90ZXh0Pjwvc3ZnPg=='"
-                                     loading="lazy">
-                                <div class="gallery-item-info">
-                                    <div class="gallery-item-name" title="${item.name}">${item.name}</div>
-                                    <div class="gallery-item-actions">
-                                        <button class="action-btn" onclick="downloadFile(${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('download')}">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                                <polyline points="7 10 12 15 17 10"></polyline>
-                                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                                            </svg>
-                                        </button>
-                                        <button class="action-btn" onclick="shareFile(${item.id}); event.stopPropagation();" title="${t('share')}">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <circle cx="18" cy="5" r="3"></circle>
-                                                <circle cx="6" cy="12" r="3"></circle>
-                                                <circle cx="18" cy="19" r="3"></circle>
-                                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                                            </svg>
-                                        </button>
-                                        <button class="action-btn delete-btn" onclick="showDeleteConfirm('file', ${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('delete')}">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <polyline points="3 6 5 6 21 6"></polyline>
-                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                                <line x1="10" y1="11" x2="10" y2="17"></line>
-                                                <line x1="14" y1="11" x2="14" y2="17"></line>
-                                            </svg>
-                                        </button>
+                                    <img class="gallery-item-preview"
+                                         src="${API_BASE}/preview/${item.id}"
+                                         alt="${item.name}"
+                                         onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5GaWxlPC90ZXh0Pjwvc3ZnPg=='"
+                                         loading="lazy">
+                                    <div class="gallery-item-info">
+                                        <div class="gallery-item-name" title="${item.name}">${item.name}</div>
+                                        <div class="gallery-item-actions">
+                                            <button class="action-btn" onclick="downloadFile(${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('download')}">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                                </svg>
+                                            </button>
+                                            <button class="action-btn" onclick="shareFile(${item.id}); event.stopPropagation();" title="${t('share')}">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <circle cx="18" cy="5" r="3"></circle>
+                                                    <circle cx="6" cy="12" r="3"></circle>
+                                                    <circle cx="18" cy="19" r="3"></circle>
+                                                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                                                </svg>
+                                            </button>
+                                            <button class="action-btn delete-btn" onclick="showDeleteConfirm('file', ${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('delete')}">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            `;
+                                `;
 
                 if (isMedia) {
                     galleryItem.onclick = () => viewMedia(item);
@@ -2112,15 +2135,32 @@
             // Reset zoom
             currentZoom = 1;
 
-            if (item.mimeType.startsWith('image/')) {
-                viewerContent.innerHTML = `<img src="${API_BASE}/data/${item.id}" alt="${item.name}">`;
-            } else if (item.mimeType.startsWith('video/')) {
+            if (isImage(item.extension)) {
+                // For HEIC, TIFF images use preview endpoint instead of data
+                const needsPreview = PREVIEW_ONLY_IMAGES.includes(item.extension.toLowerCase());
+                const imageUrl = needsPreview
+                    ? `${API_BASE}/preview/${item.id}`
+                    : `${API_BASE}/data/${item.id}`;
+
+                viewerContent.innerHTML = `<img src="${imageUrl}" alt="${item.name}">`;
+            } else if (isVideo(item.extension)) {
+                // Note: Some video formats like .wmv and .avi may not be supported by all browsers
+                // Modern browsers typically support .mp4, .webm, and sometimes .mov
+                let mimeType = item.mimeType;
+
+                // Fix MIME types for problematic formats
+                if (item.extension.toLowerCase() === '.wmv') {
+                    mimeType = 'video/x-ms-wmv';
+                } else if (item.extension.toLowerCase() === '.avi') {
+                    mimeType = 'video/x-msvideo';
+                }
+
                 viewerContent.innerHTML = `
-                                <video controls autoplay>
-                                    <source src="${API_BASE}/data/${item.id}" type="${item.mimeType}">
-                                    ${t('videoPlaybackError')}
-                                </video>
-                            `;
+                                    <video controls autoplay>
+                                        <source src="${API_BASE}/data/${item.id}" type="${mimeType}">
+                                        ${t('videoPlaybackError')}
+                                    </video>
+                                `;
             }
 
             showModal('viewerModal');
@@ -2426,6 +2466,20 @@
                     currentZoom = 1;
                     const zoomInfo = document.getElementById('zoomInfo');
                     zoomInfo.classList.remove('show');
+
+                    // Stop video playback if there's a video element
+                    const viewerContent = document.getElementById('viewerContent');
+                    const video = viewerContent.querySelector('video');
+                    if (video) {
+                        video.pause();
+                        video.currentTime = 0;
+                        // Clear the video source to fully stop it
+                        video.src = '';
+                        video.load();
+                    }
+
+                    // Clear viewer content to prevent any background processing
+                    viewerContent.innerHTML = '';
                 }
             }
         }

@@ -1,0 +1,113 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Видео плеер</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .video-container {
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .error-message {
+            color: #ff0000;
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .wrapper {
+            width: 100%;
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <h1>Видео плеер</h1>
+        <div class="video-container">
+            <video id="videoPlayer" controls preload="metadata">
+                <source src="/api/video/stream/sample.mp4" type="video/mp4">
+                Ваш браузер не поддерживает видео тег.
+            </video>
+        </div>
+        <div id="errorMessage" class="error-message"></div>
+    </div>
+
+    <script>const video = document.getElementById('videoPlayer');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Обработка ошибок загрузки видео
+        video.addEventListener('error', function(e) {
+            let message = 'Ошибка загрузки видео: ';
+
+            if (video.error) {
+                switch (video.error.code) {
+                    case 1:
+                        message += 'Загрузка видео была прервана';
+                        break;
+                    case 2:
+                        message += 'Сетевая ошибка';
+                        break;
+                    case 3:
+                        message += 'Ошибка декодирования видео';
+                        break;
+                    case 4:
+                        message += 'Формат видео не поддерживается';
+                        break;
+                    default:
+                        message += 'Неизвестная ошибка';
+                }
+            }
+
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            console.error('Video error:', e);
+        });
+
+        // Логирование событий загрузки
+        video.addEventListener('loadstart', () => console.log('Начало загрузки видео'));
+        video.addEventListener('loadedmetadata', () => console.log('Метаданные загружены'));
+        video.addEventListener('canplay', () => console.log('Видео готово к воспроизведению'));
+
+        // Дополнительные настройки для больших файлов
+        video.addEventListener('progress', function() {
+            if (video.buffered.length > 0) {
+                const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+                const duration = video.duration;
+                if (duration > 0) {
+                    const percentLoaded = (bufferedEnd / duration) * 100;
+                    console.log(`Загружено: ${percentLoaded.toFixed(2)}%`);
+                }
+            }
+        });</script>
+</body>
+</html>

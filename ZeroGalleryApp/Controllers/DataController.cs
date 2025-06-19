@@ -127,11 +127,12 @@ namespace ZeroGalleryApp.Controllers
         [HttpGet("data/{id}")]
         [EnableCors("AllowAll")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status206PartialContent)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces(MediaTypeNames.Application.Octet)]
-        public IActionResult GetData([FromRoute] long id)
+        public async Task<IActionResult> GetData([FromRoute] long id)
         {
             try
             {
@@ -145,13 +146,108 @@ namespace ZeroGalleryApp.Controllers
                     Log.Warning($"[DataController.GetData] Not found data {id}");
                     return NotFound();
                 }
-                return PhysicalFile(info.FilePath, info.MimeType, info.Name);
+
+                // Check if file exists
+                if (!System.IO.File.Exists(info.FilePath))
+                {
+                    Log.Warning($"[DataController.GetData] File not found on disk: {info.FilePath}");
+                    return NotFound();
+                }
+
+                var fileInfo = new FileInfo(info.FilePath);
+
+                var isVideo = info.DataType == DataType.Video;
+
+                // Support Range requests for video files
+                if (isVideo && Request.Headers.ContainsKey("Range"))
+                {
+                    return await GetPartialContent(info.FilePath, info.MimeType, fileInfo.Length);
+                }
+
+                // For non-video files or full file requests
+                var stream = new FileStream(info.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+                return File(stream, info.MimeType, info.Name, enableRangeProcessing: isVideo);
             }
             catch (Exception ex)
             {
                 Error(ex, $"[DataController.GetData] Id: {id}");
                 return BadRequest(ex.Message);
             }
+        }
+
+        private async Task<IActionResult> GetPartialContent(string filePath, string contentType, long fileLength)
+        {
+            var rangeHeader = Request.Headers["Range"].ToString();
+            var range = ParseRange(rangeHeader, fileLength);
+
+            if (!range.HasValue)
+                return BadRequest("Invalid range");
+
+            var (start, end) = range.Value;
+            var contentLength = end - start + 1;
+
+            Response.StatusCode = 206; // Partial Content
+            Response.Headers.Add("Content-Range", $"bytes {start}-{end}/{fileLength}");
+            Response.Headers.Add("Accept-Ranges", "bytes");
+            Response.Headers.Add("Content-Length", contentLength.ToString());
+            Response.ContentType = contentType;
+
+            var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+            stream.Seek(start, SeekOrigin.Begin);
+
+            var buffer = new byte[4096];
+            var bytesRemaining = contentLength;
+
+            while (bytesRemaining > 0)
+            {
+                var bytesToRead = (int)Math.Min(buffer.Length, bytesRemaining);
+                var bytesRead = await stream.ReadAsync(buffer, 0, bytesToRead);
+
+                if (bytesRead == 0)
+                    break;
+
+                await Response.Body.WriteAsync(buffer, 0, bytesRead);
+                bytesRemaining -= bytesRead;
+            }
+
+            stream.Dispose();
+            return new EmptyResult();
+        }
+
+        private (long start, long end)? ParseRange(string rangeHeader, long fileLength)
+        {
+            if (!rangeHeader.StartsWith("bytes="))
+                return null;
+
+            var range = rangeHeader.Substring(6);
+            var parts = range.Split('-');
+
+            if (parts.Length != 2)
+                return null;
+
+            long start = 0;
+            long end = fileLength - 1;
+
+            if (!string.IsNullOrEmpty(parts[0]))
+            {
+                if (!long.TryParse(parts[0], out start))
+                    return null;
+            }
+
+            if (!string.IsNullOrEmpty(parts[1]))
+            {
+                if (!long.TryParse(parts[1], out end))
+                    return null;
+            }
+            else
+            {
+                end = fileLength - 1;
+            }
+
+            if (start > end || start < 0 || end >= fileLength)
+                return null;
+
+            return (start, end);
         }
 
         [HttpPost("album")]

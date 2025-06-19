@@ -9,6 +9,7 @@
             ".avi",
             ".webm",
             ".wmv",
+            ".mkv",
         };
 
         public static bool IsVideo(string extension) => _knownVideoExtensions.Contains(extension.ToLowerInvariant());
