@@ -1,5 +1,6 @@
 ﻿using ZeroGallery.Shared.Models.DB;
 using ZeroGallery.Shared.Services;
+using ZeroGallery.Shared.Services.DB;
 using ZeroGalleryApp;
 
 namespace ZeroGallery.Shared.Tests
@@ -29,17 +30,29 @@ namespace ZeroGallery.Shared.Tests
         };
 
         private AppConfig appConfig;
+        private DataAlbumRepository albumRepository;
+        private DataRecordRepository recordRepository;
 
-        [SetUp]
+        [OneTimeSetUp]
         public void Setup()
         {
             appConfig = new AppConfig
             {
-                api_write_token = "asd",
-                data_folder = @"G:\UPLOADS"
+                api_write_token = "test",
+                api_master_token = "test",
+                data_folder = "media",
+                db_path = "db"
             };
+            albumRepository = new DataAlbumRepository(appConfig.db_path);
+            recordRepository = new DataRecordRepository(appConfig.db_path);
         }
 
+        [OneTimeTearDown]
+        public void TearDown()
+        {
+            albumRepository.Dispose();
+            recordRepository.Dispose();
+        }
 
         [Test]
         public void MimeTypeDetectorTest()
@@ -67,7 +80,8 @@ namespace ZeroGallery.Shared.Tests
         [Test]
         public async Task DataStorageTest()
         {
-            using (var storage = new DataStorage(appConfig))
+
+            using (var storage = new DataStorage(appConfig, albumRepository, recordRepository))
             {
                 storage.DropAll();
                 long lastItemId = -1;
@@ -75,7 +89,7 @@ namespace ZeroGallery.Shared.Tests
                 var inserted = new Dictionary<long, DataRecord>();
 
                 // INSERT ALBUM
-                var videoAlbum = storage.AppendAlbum("Video", "Video files", "password");
+                var videoAlbum = storage.AppendAlbum("Video", "Video files", "password", true);
                 Assert.That(videoAlbum, Is.Not.Null);
                 Assert.That(videoAlbum.Id, Is.GreaterThan(-1));
 

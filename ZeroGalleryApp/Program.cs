@@ -63,6 +63,7 @@ namespace ZeroGalleryApp
 
             var config = Configuration.ReadFromIniFile("config.ini").Bind<AppConfig>();
             var env_config = Configuration.ReadFromEnvironmentVariables();
+
             if (env_config != null)
             {
                 UpdateConfigFromEnvironments(config, env_config);

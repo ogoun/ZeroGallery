@@ -354,6 +354,21 @@ namespace ZeroGalleryApp.Controllers
             return Unauthorized();
         }
 
+#if DEBUG
+        [HttpDelete("all")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public IActionResult DeleteAll([FromRoute] long id)
+        {
+            if (HasAdminAccess())
+            {
+                _storage.DropAll();
+                return Ok();
+            }
+            return Unauthorized();
+        }
+#endif
+
         private PhysicalFileResult GetBlankFileForDataType(DataType dataType)
         {
             switch (dataType)

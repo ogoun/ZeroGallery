@@ -1,0 +1,57 @@
+[package]
+name = "zerogallery"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Rust client for ZeroGallery API"
+license = "MIT"
+repository = "https://github.com/yourusername/zerogallery-rust"
+readme = "README.md"
+keywords = ["zerogallery", "api", "client", "gallery", "storage"]
+categories = ["api-bindings", "web-programming"]
+
+[dependencies]
+# HTTP клиент
+reqwest = { version = "0.11", features = ["json", "multipart", "stream"] }
+
+# Асинхронность
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+futures-util = "0.3"
+
+# Сериализация
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Обработка ошибок
+thiserror = "1.0"
+
+# Логирование (опционально)
+log = { version = "0.4", optional = true }
+
+# Прогресс бары (опционально)
+indicatif = { version = "0.17", optional = true }
+
+[dev-dependencies]
+# Тестирование
+tokio-test = "0.4"
+mockito = "1.0"
+tempfile = "3.8"
+
+[features]
+default = []
+# Включить поддержку логирования
+logging = ["log"]
+# Включить поддержку прогресс-баров
+progress = ["indicatif"]
+# Все фичи
+full = ["logging", "progress"]
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"
+
+[[example]]
+name = "advanced"
+path = "examples/advanced.rs"
+required-features = ["progress"]

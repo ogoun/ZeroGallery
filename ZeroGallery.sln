@@ -18,6 +18,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Migrations", "Migrations", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VideoStreamingTestApp", "Tests\VideoStreamingTestApp\VideoStreamingTestApp.csproj", "{C4715B2F-9547-4A2C-A597-B8F5CCBB1285}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Clients", "Clients", "{ADF18015-705B-452D-ACE2-F3E21E42BB94}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "C#", "C#", "{ECDF53E7-0D3D-4221-A2E4-AB50F121CB16}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZeroGalleryClient", "Clients\C#\ZeroGalleryClient\ZeroGalleryClient.csproj", "{1CED1253-86A2-4BE6-8E28-603C68AD143A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -40,6 +46,10 @@ Global
 		{C4715B2F-9547-4A2C-A597-B8F5CCBB1285}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C4715B2F-9547-4A2C-A597-B8F5CCBB1285}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C4715B2F-9547-4A2C-A597-B8F5CCBB1285}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CED1253-86A2-4BE6-8E28-603C68AD143A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CED1253-86A2-4BE6-8E28-603C68AD143A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CED1253-86A2-4BE6-8E28-603C68AD143A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CED1253-86A2-4BE6-8E28-603C68AD143A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -47,6 +57,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{FF91AD0E-679E-4E24-B5D7-C2583FA971B0} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{C4715B2F-9547-4A2C-A597-B8F5CCBB1285} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{ECDF53E7-0D3D-4221-A2E4-AB50F121CB16} = {ADF18015-705B-452D-ACE2-F3E21E42BB94}
+		{1CED1253-86A2-4BE6-8E28-603C68AD143A} = {ECDF53E7-0D3D-4221-A2E4-AB50F121CB16}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F6412BC4-81B2-464A-9D1E-63ED27B0677F}
