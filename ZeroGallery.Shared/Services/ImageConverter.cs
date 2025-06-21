@@ -1,9 +1,6 @@
 ﻿using ImageMagick;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Png;
-using SkiaSharp;
-using Svg.Skia;
 using System.Buffers;
 using ZeroLevel;
 
@@ -48,7 +45,7 @@ namespace ZeroGallery.Shared.Services
             };
         }
 
-        public async Task<byte[]> ConvertToJpgAsync(Stream inputStream, string inputFormat, 
+        public async Task<byte[]> ConvertToJpgAsync(Stream inputStream, string inputFormat,
             int quality = 85, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(inputStream);
@@ -86,6 +83,14 @@ namespace ZeroGallery.Shared.Services
 
 
         #region JPEG
+        private readonly MagickReadSettings _readSettings = new MagickReadSettings
+        {
+            Format = MagickFormat.Svg,
+            Density = new Density(300, 300), // Высокое разрешение для качественной растеризации
+            BackgroundColor = MagickColors.White, // Белый фон для JPG
+            ColorSpace = ColorSpace.sRGB
+        };
+
         private async Task<byte[]> ConvertWithImageSharp(Stream inputStream, int quality,
             CancellationToken cancellationToken)
         {
@@ -128,31 +133,31 @@ namespace ZeroGallery.Shared.Services
         private async Task<byte[]> ConvertSvgWithSkia(Stream inputStream, int quality,
             CancellationToken cancellationToken)
         {
-            using var svg = new SKSvg();
+            // Читаем SVG в память для работы с Magick.NET
+            using var memoryStream = new MemoryStream();
+            await inputStream.CopyToAsync(memoryStream, cancellationToken);
+            memoryStream.Position = 0;
 
-            // Load SVG asynchronously
-            await Task.Run(() => svg.Load(inputStream), cancellationToken);
-
-            if (svg.Picture == null)
-                throw new InvalidOperationException("Failed to load SVG");
-
-            // Calculate output dimensions maintaining aspect ratio
-            var bounds = svg.Picture.CullRect;
-            var targetWidth = Math.Min(2048, bounds.Width);
-            var scale = targetWidth / bounds.Width;
-            var targetHeight = bounds.Height * scale;
-
-            using var bitmap = new SKBitmap((int)targetWidth, (int)targetHeight);
-            using var canvas = new SKCanvas(bitmap);
-
-            canvas.Clear(SKColors.White); // White background for JPG
-            canvas.Scale(scale);
-            canvas.DrawPicture(svg.Picture);
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Jpeg, quality);
-
-            return data.ToArray();
+            using var image = new MagickImage(memoryStream, _readSettings);
+            // Ограничиваем максимальный размер, сохраняя пропорции
+            const int maxDimension = 2048;
+            if (image.Width > maxDimension || image.Height > maxDimension)
+            {
+                var geometry = new MagickGeometry(maxDimension, maxDimension)
+                {
+                    IgnoreAspectRatio = false,
+                    Greater = false
+                };
+                image.Resize(geometry);
+            }
+            // Настройки для конвертации в JPEG
+            image.Format = MagickFormat.Jpeg;
+            image.Quality = (uint)quality;
+            // Убираем альфа-канал для JPEG
+            image.Alpha(AlphaOption.Remove);
+            // Оптимизация для web
+            image.Strip();
+            return image.ToByteArray();
         }
 
         private async Task<byte[]> ConvertIcoWithMagick(Stream inputStream, int quality,
