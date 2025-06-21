@@ -374,11 +374,11 @@ namespace ZeroGalleryApp.Controllers
             switch (dataType)
             {
                 case DataType.Image:
-                    return PhysicalFile(@"./assets/binary.jpg", "image/jpeg", "image.jpg");
+                    return PhysicalFile(Path.Combine(Configuration.BaseDirectory, "assets/binary.jpg"), "image/jpeg", "image.jpg");
                 case DataType.Video:
-                    return PhysicalFile(@"./assets/video.jpg", "image/jpeg", "image.jpg");
+                    return PhysicalFile(Path.Combine(Configuration.BaseDirectory, "assets/video.jpg"), "image/jpeg", "image.jpg");
             }
-            return PhysicalFile(@"./assets/binary.jpg", "image/jpeg", "image.jpg");
+            return PhysicalFile(Path.Combine(Configuration.BaseDirectory, "assets/binary.jpg"), "image/jpeg", "image.jpg");
         }
     }
 }

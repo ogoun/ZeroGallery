@@ -7,16 +7,19 @@ namespace ZeroGallery.Shared.Services.DB
     {
         public static DataInfo Map(DataRecord entity)
         {
-            var data = new DataInfo();
-            data.AlbumId = entity.AlbumId;
-            data.CreatedTimestamp = entity.CreatedTimestamp;
-            data.Description = entity.Description;
-            data.Extension = entity.Extension;
-            data.Id = entity.Id;
-            data.MimeType = entity.MimeType;
-            data.Name = entity.Name;
-            data.Size = entity.Size;
-            data.Tags = entity.Tags;
+            var data = new DataInfo
+            {
+                AlbumId = entity.AlbumId,
+                CreatedTimestamp = entity.CreatedTimestamp,
+                Description = entity.Description,
+                Extension = entity.Extension,
+                Id = entity.Id,
+                MimeType = entity.MimeType,
+                Name = entity.Name,
+                Size = entity.Size,
+                Tags = entity.Tags,
+                HasPreview = PreviewState.HAS_PREVIEW == (PreviewState)entity.PreviewStatus,
+            };
             return data;
         }
     }

@@ -46,5 +46,10 @@
         /// Теги через ;
         /// </summary>
         public string Tags { get; set; }
+
+        /// <summary>
+        /// Для объекта есть изображение с превью
+        /// </summary>
+        public bool HasPreview { get; set; }
     }
 }

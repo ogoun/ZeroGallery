@@ -1,6 +1,7 @@
 ﻿using ImageMagick;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 using SkiaSharp;
 using Svg.Skia;
 using System.Buffers;
@@ -47,7 +48,7 @@ namespace ZeroGallery.Shared.Services
             };
         }
 
-        public async Task<byte[]> ConvertToJpgAsync(Stream inputStream, string inputFormat,
+        public async Task<byte[]> ConvertToJpgAsync(Stream inputStream, string inputFormat, 
             int quality = 85, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(inputStream);
@@ -83,6 +84,8 @@ namespace ZeroGallery.Shared.Services
             }
         }
 
+
+        #region JPEG
         private async Task<byte[]> ConvertWithImageSharp(Stream inputStream, int quality,
             CancellationToken cancellationToken)
         {
@@ -169,6 +172,7 @@ namespace ZeroGallery.Shared.Services
 
             return largestIcon.ToByteArray();
         }
+        #endregion
 
         public bool IsFormatSupported(string format)
         {

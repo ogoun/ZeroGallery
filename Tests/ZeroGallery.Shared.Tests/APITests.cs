@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
+using System.Xml.Linq;
 using ZeroGalleryClient;
 
 namespace ZeroGallery.Shared.Tests
@@ -42,7 +43,7 @@ namespace ZeroGallery.Shared.Tests
             Environment.SetEnvironmentVariable("api_write_token", UPLOAD_TOKEN);
             Environment.SetEnvironmentVariable("data_folder", "media");
             Environment.SetEnvironmentVariable("db_path", "db");
-                
+
             _zeroGalleryApp = new WebApplicationFactory<ZeroGalleryApp.Program>();
             _zeroGalleryApp.Server.CreateHandler();
 
@@ -60,32 +61,137 @@ namespace ZeroGallery.Shared.Tests
             _client.Dispose();
         }
 
+        [TearDown]
+        public async Task TearDown()
+        {
+            await _client.DeleteAll(MASTER_TOKEN);
+        }
+
         [Test]
-        public async Task TestMakeAlbum()
+        public async Task MakeAlbumTest()
         {
             var album = await _client.CreateAlbumAsync("1", allowRemoveData: true);
 
-            Assert.That(album.Name.IsEqual("1"), Is.True);
-            Assert.That(album.IsProtected == false, Is.True);
+            Assert.That(album.Name, Is.EqualTo("1"));
+            Assert.That(album.IsProtected, Is.EqualTo(false));
 
             var albums = await _client.GetAlbumsAsync();
-            Assert.That(albums.Length == 1, Is.True);
 
-            Assert.That(albums[0].Name.IsEqual("1"), Is.True);
+            Assert.That(albums.Length, Is.EqualTo(1));
+            Assert.That(albums[0].Name, Is.EqualTo("1"));
 
             await _client.DeleteAlbumAsync(albums[0].Id);
+            albums = await _client.GetAlbumsAsync();
 
-            var success = await TimeoutCheck(TimeSpan.FromSeconds(10), 500, async () =>
-            {
-                albums = await _client.GetAlbumsAsync();
-                return albums.Length == 0;
-            });
-            
-            Assert.That(success, Is.True);
+            Assert.That(albums.Length, Is.EqualTo(0));
         }
 
+        [Test]
+        public async Task InsertDataWithoutAlbumTest()
+        {
+            var identities = new List<long>();
+            var names = new List<string>();
+
+            foreach (var image in images)
+            {
+                using (var fs = File.OpenRead(image))
+                {
+                    var name = Path.GetFileName(image);
+                    identities.Add(await _client.UploadFileAsync(fs, name));
+                    names.Add(name);
+                }
+            }
+            foreach (var video in videos)
+            {
+                using (var fs = File.OpenRead(video))
+                {
+                    var name = Path.GetFileName(video);
+                    identities.Add(await _client.UploadFileAsync(fs, name));
+                    names.Add(name);
+                }
+            }
+
+            var items = await _client.GetNoAlbumDataItemsAsync();
+
+            Assert.That(items.Length, Is.EqualTo(identities.Count));
+
+            foreach (var item in items)
+            {
+                Assert.That(item.Id, Is.AnyOf(identities));
+                Assert.That(item.Name, Is.AnyOf(names));
+            }
+
+            foreach (var id in identities)
+            {
+                await _client.DeleteDataAsync(id);
+            }
+
+            items = await _client.GetNoAlbumDataItemsAsync();
+            Assert.That(items.Length, Is.EqualTo(0));
+        }
+
+        [Test]
+        public async Task ProtectedAlbumTest()
+        {
+            var album = await _client.CreateAlbumAsync("1p", allowRemoveData: true, token: ALBUM_TOKEN);
+
+            Assert.That(album.Name, Is.EqualTo("1p"));
+            Assert.That(album.IsProtected, Is.EqualTo(true));
+
+            var albums = await _client.GetAlbumsAsync();
+
+            Assert.That(albums.Length, Is.EqualTo(1));
+            Assert.That(albums[0].Name, Is.EqualTo("1p"));
+
+            var dataFile = images[0];
+            // NO ACCESS TOKEN
+            using (var fs = File.OpenRead(dataFile))
+            {
+                var name = Path.GetFileName(dataFile);
+                var ex = Assert.ThrowsAsync<HttpRequestException>(async () => await _client.UploadFileAsync(fs, name, albumId: album.Id));
+                Assert.That(ex.Message, Is.EqualTo("Response status code does not indicate success: 401 (Unauthorized)."));
+            }
+
+            // HAS ACCESS TOKEN
+            long id;
+            using (var fs = File.OpenRead(dataFile))
+            {
+                var name = Path.GetFileName(dataFile);
+                id =  await _client.UploadFileAsync(fs, name, albumId: album.Id, accessToken: ALBUM_TOKEN);
+                Assert.That(id, Is.GreaterThan(0));
+            }
+
+            // GET WITHOUT ACCESS CODE
+            var get_ex = Assert.ThrowsAsync<HttpRequestException>(async () => await _client.GetAlbumDataItemsAsync(album.Id));
+            Assert.That(get_ex.Message, Is.EqualTo("Response status code does not indicate success: 401 (Unauthorized)."));
+
+            // GET WITH ACCESS CODE
+            var items = await _client.GetAlbumDataItemsAsync(album.Id, accessToken: ALBUM_TOKEN);
+            Assert.That(items.Length, Is.EqualTo(1));
+
+            // DELETE ITEM WITHOUT ACCESS CODE
+            var del_ex = Assert.ThrowsAsync<HttpRequestException>(async () => await _client.DeleteDataAsync(id));
+            Assert.That(del_ex.Message, Is.EqualTo("Response status code does not indicate success: 401 (Unauthorized)."));
+
+            // DELETE ITEM WITH ACCESS CODE
+            await _client.DeleteDataAsync(id, accessToken: ALBUM_TOKEN);
+            items = await _client.GetAlbumDataItemsAsync(id, accessToken: ALBUM_TOKEN);
+            Assert.That(items.Length, Is.EqualTo(0));
+
+            // DELETE ALBUM WITHOUT ACCESS CODE
+            var del_alb_ex = Assert.ThrowsAsync<HttpRequestException>(async () => await _client.DeleteAlbumAsync(album.Id));
+            Assert.That(del_alb_ex.Message, Is.EqualTo("Response status code does not indicate success: 401 (Unauthorized)."));
+
+            // DELETE ALBUM WITH ACCESS CODE
+            await _client.DeleteAlbumAsync(album.Id, accessToken: ALBUM_TOKEN);
+            albums = await _client.GetAlbumsAsync();
+            Assert.That(albums.Length, Is.EqualTo(0));
+        }
+
+
+
         private async Task<bool> TimeoutCheck(TimeSpan timeout, int timeBetweenTryingMs, Func<Task<bool>> test)
-        {            
+        {
             var start = DateTime.UtcNow;
             TimeSpan diff;
             do

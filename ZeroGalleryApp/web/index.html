@@ -411,7 +411,13 @@
             height: 100%;
             object-fit: cover;
             background: var(--bg-hover);
+            transition: opacity 0.3s ease;
+            opacity: 1;
         }
+
+            .album-tile-image[data-lazy-src] {
+                opacity: 0.7;
+            }
 
         .album-tile-info {
             position: absolute;
@@ -582,7 +588,13 @@
             display: block;
             flex-shrink: 0;
             box-sizing: border-box;
+            transition: opacity 0.3s ease;
+            opacity: 1;
         }
+
+            .gallery-item-preview[data-lazy-src] {
+                opacity: 0.7;
+            }
 
         .gallery-item-info {
             padding: var(--spacing-md);
@@ -1627,6 +1639,11 @@
         let currentZoom = 1;
         let zoomTimeout = null;
 
+        // Lazy loading observer
+        let lazyLoadObserver = null;
+        let preloadQueue = new Set();
+        let loadedImages = new Set();
+
         // File type constants
         const IMAGE_EXTENSIONS = ['.png', '.jpg', '.bmp', '.gif', '.heic', '.ico', '.svg', '.tiff', '.webp'];
         const VIDEO_EXTENSIONS = ['.mov', '.mp4', '.avi', '.webm', '.wmv', '.mkv'];
@@ -1826,6 +1843,212 @@
             }
         }
 
+        function initLazyLoadObserver() {
+            if (lazyLoadObserver) {
+                lazyLoadObserver.disconnect();
+            }
+
+            // Calculate preload margin based on row height
+            const getRowHeight = () => {
+                const firstItem = document.querySelector('.gallery-item');
+                if (!firstItem) return 300; // fallback
+                return firstItem.getBoundingClientRect().height;
+            };
+
+            lazyLoadObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        const itemId = img.dataset.itemId;
+
+                        if (!loadedImages.has(itemId) && img.dataset.lazySrc) {
+                            loadImage(img);
+                            observer.unobserve(img);
+                        }
+                    }
+                });
+
+                // Preload nearby items
+                preloadNearbyItems();
+            }, {
+                // Preload when item is within 3 rows of viewport
+                rootMargin: `${getRowHeight() * 3}px 0px`
+            });
+        }
+
+        function loadImage(img) {
+            const itemId = img.dataset.itemId;
+            if (loadedImages.has(itemId)) return;
+
+            const src = img.dataset.lazySrc;
+            if (src) {
+                // Create new image to preload
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    img.src = src;
+                    loadedImages.add(itemId);
+                    img.removeAttribute('data-lazy-src');
+                };
+                tempImg.onerror = () => {
+                    img.onerror = null;
+                    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5GaWxlPC90ZXh0Pjwvc3ZnPg==';
+                    loadedImages.add(itemId);
+                };
+                tempImg.src = src;
+            }
+        }
+
+        function preloadNearbyItems() {
+            // Get all lazy images
+            const lazyImages = document.querySelectorAll('.gallery-item-preview[data-lazy-src]');
+            const galleryGrid = document.getElementById('galleryGrid');
+            const mainContent = document.querySelector('.main-content');
+
+            if (!mainContent || !galleryGrid) return;
+
+            const scrollTop = mainContent.scrollTop;
+            const viewportHeight = mainContent.clientHeight;
+            const rowHeight = getAverageRowHeight();
+
+            // Calculate visible range with 3 rows margin
+            const topBoundary = scrollTop - (rowHeight * 3);
+            const bottomBoundary = scrollTop + viewportHeight + (rowHeight * 3);
+
+            lazyImages.forEach(img => {
+                const rect = img.getBoundingClientRect();
+                const imgTop = rect.top + scrollTop - mainContent.getBoundingClientRect().top;
+
+                if (imgTop >= topBoundary && imgTop <= bottomBoundary) {
+                    const itemId = img.dataset.itemId;
+                    if (!loadedImages.has(itemId) && !preloadQueue.has(itemId)) {
+                        preloadQueue.add(itemId);
+                        // Delay to avoid too many simultaneous requests
+                        setTimeout(() => {
+                            loadImage(img);
+                            preloadQueue.delete(itemId);
+                        }, 50);
+                    }
+                }
+            });
+        }
+
+        function getAverageRowHeight() {
+            const items = document.querySelectorAll('.gallery-item');
+            if (items.length === 0) return 300;
+
+            const galleryGrid = document.getElementById('galleryGrid');
+            const computedStyle = window.getComputedStyle(galleryGrid);
+            const columns = computedStyle.getPropertyValue('grid-template-columns').split(' ').length;
+
+            if (items.length >= columns && columns > 0) {
+                // Get height of first row
+                let maxHeight = 0;
+                for (let i = 0; i < Math.min(columns, items.length); i++) {
+                    const height = items[i].getBoundingClientRect().height;
+                    if (height > maxHeight) maxHeight = height;
+                }
+                return maxHeight;
+            }
+
+            return items[0].getBoundingClientRect().height;
+        }
+
+        function displayGallery(items) {
+            const galleryGrid = document.getElementById('galleryGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            galleryGrid.innerHTML = '';
+            loadedImages.clear();
+            preloadQueue.clear();
+
+            if (!items || items.length === 0) {
+                emptyState.style.display = 'flex';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            items.forEach(item => {
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'gallery-item';
+
+                const isMedia = isImage(item.extension) || isVideo(item.extension);
+
+                // Use placeholder initially
+                const placeholderSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzJhMmEyYSIvPjwvc3ZnPg==';
+
+                galleryItem.innerHTML = `
+                                        <img class="gallery-item-preview"
+                                             src="${placeholderSrc}"
+                                             data-lazy-src="${API_BASE}/preview/${item.id}"
+                                             data-item-id="${item.id}"
+                                             alt="${item.name}">
+                                        <div class="gallery-item-info">
+                                            <div class="gallery-item-name" title="${item.name}">${item.name}</div>
+                                            <div class="gallery-item-actions">
+                                                <button class="action-btn" onclick="downloadFile(${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('download')}">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                                    </svg>
+                                                </button>
+                                                <button class="action-btn" onclick="shareFile(${item.id}); event.stopPropagation();" title="${t('share')}">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <circle cx="18" cy="5" r="3"></circle>
+                                                        <circle cx="6" cy="12" r="3"></circle>
+                                                        <circle cx="18" cy="19" r="3"></circle>
+                                                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                                                    </svg>
+                                                </button>
+                                                <button class="action-btn delete-btn" onclick="showDeleteConfirm('file', ${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('delete')}">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+
+                if (isMedia) {
+                    galleryItem.onclick = () => viewMedia(item);
+                }
+
+                galleryGrid.appendChild(galleryItem);
+            });
+
+            // Initialize lazy loading after a short delay to ensure layout is complete
+            setTimeout(() => {
+                initLazyLoadObserver();
+
+                // Start observing all images
+                const lazyImages = galleryGrid.querySelectorAll('.gallery-item-preview[data-lazy-src]');
+                lazyImages.forEach(img => {
+                    lazyLoadObserver.observe(img);
+                });
+
+                // Also add scroll listener for additional preloading
+                const mainContent = document.querySelector('.main-content');
+                if (mainContent) {
+                    mainContent.removeEventListener('scroll', handleScrollForPreload);
+                    mainContent.addEventListener('scroll', handleScrollForPreload);
+                }
+            }, 100);
+        }
+
+        // Debounced scroll handler for preloading
+        let scrollTimeout;
+        function handleScrollForPreload() {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                preloadNearbyItems();
+            }, 100);
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             // Load saved language preference if localStorage is available
@@ -1972,28 +2195,55 @@
                 albums.forEach(album => {
                     const albumTile = document.createElement('div');
                     albumTile.className = 'album-tile';
+
+                    // Use placeholder for album preview too
+                    const placeholderSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg==';
+                    const previewSrc = album.imagePreviewId > 0 ? `${API_BASE}/preview/${album.imagePreviewId}` : placeholderSrc;
+
                     albumTile.innerHTML = `
-                                        ${album.isProtected ? '<span class="lock-icon">🔒</span>' : ''}
-                                        <button class="album-delete-btn" onclick="showDeleteConfirm('album', ${album.id}, '${escapeHtml(album.name)}'); event.stopPropagation();" title="${t('delete')}">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <polyline points="3 6 5 6 21 6"></polyline>
-                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                                <line x1="10" y1="11" x2="10" y2="17"></line>
-                                                <line x1="14" y1="11" x2="14" y2="17"></line>
-                                            </svg>
-                                        </button>
-                                        <img class="album-tile-image"
-                                             src="${album.imagePreviewId > 0 ? `${API_BASE}/preview/${album.imagePreviewId}` : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='}"
-                                             alt="${album.name}"
-                                             onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5OBPC90ZXh0Pjwvc3ZnPg=='"
-                                             loading="lazy">
-                                        <div class="album-tile-info">
-                                            <div class="album-tile-name" title="${album.name}">${album.name}</div>
-                                        </div>
-                                    `;
+                                            ${album.isProtected ? '<span class="lock-icon">🔒</span>' : ''}
+                                            <button class="album-delete-btn" onclick="showDeleteConfirm('album', ${album.id}, '${escapeHtml(album.name)}'); event.stopPropagation();" title="${t('delete')}">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                </svg>
+                                            </button>
+                                            <img class="album-tile-image"
+                                                 src="${placeholderSrc}"
+                                                 ${album.imagePreviewId > 0 ? `data-lazy-src="${previewSrc}"` : ''}
+                                                 data-item-id="album-${album.id}"
+                                                 alt="${album.name}">
+                                            <div class="album-tile-info">
+                                                <div class="album-tile-name" title="${album.name}">${album.name}</div>
+                                            </div>
+                                        `;
                     albumTile.onclick = () => selectAlbum(album.id, album.isProtected);
                     albumTile.dataset.albumId = album.id;
                     albumsList.appendChild(albumTile);
+                });
+
+                // Setup lazy loading for album previews
+                const albumImages = albumsList.querySelectorAll('.album-tile-image[data-lazy-src]');
+                albumImages.forEach(img => {
+                    // Use simpler approach for sidebar albums since they're usually visible
+                    const observer = new IntersectionObserver((entries) => {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                                const img = entry.target;
+                                const src = img.dataset.lazySrc;
+                                if (src) {
+                                    img.src = src;
+                                    img.removeAttribute('data-lazy-src');
+                                    observer.unobserve(img);
+                                }
+                            }
+                        });
+                    }, {
+                        rootMargin: '50px'
+                    });
+                    observer.observe(img);
                 });
             } catch (error) {
                 showNotification(t('loadAlbumsError'), 'error');
@@ -2001,6 +2251,15 @@
         }
 
         async function selectAlbum(albumId, isProtected) {
+            // Clean up lazy loading observer before switching albums
+            if (lazyLoadObserver) {
+                lazyLoadObserver.disconnect();
+            }
+
+            // Clear loaded images cache when switching albums
+            loadedImages.clear();
+            preloadQueue.clear();
+
             if (isProtected && !albumTokens[albumId]) {
                 pendingAlbumId = albumId;
                 showModal('tokenModal');
@@ -2065,70 +2324,6 @@
             }
         }
 
-        function displayGallery(items) {
-            const galleryGrid = document.getElementById('galleryGrid');
-            const emptyState = document.getElementById('emptyState');
-
-            galleryGrid.innerHTML = '';
-
-            if (!items || items.length === 0) {
-                emptyState.style.display = 'flex';
-                return;
-            }
-
-            emptyState.style.display = 'none';
-
-            items.forEach(item => {
-                const galleryItem = document.createElement('div');
-                galleryItem.className = 'gallery-item';
-
-                const isMedia = isImage(item.extension) || isVideo(item.extension);
-
-                galleryItem.innerHTML = `
-                                    <img class="gallery-item-preview"
-                                         src="${API_BASE}/preview/${item.id}"
-                                         alt="${item.name}"
-                                         onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMWYxZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjODg4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5GaWxlPC90ZXh0Pjwvc3ZnPg=='"
-                                         loading="lazy">
-                                    <div class="gallery-item-info">
-                                        <div class="gallery-item-name" title="${item.name}">${item.name}</div>
-                                        <div class="gallery-item-actions">
-                                            <button class="action-btn" onclick="downloadFile(${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('download')}">
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                                </svg>
-                                            </button>
-                                            <button class="action-btn" onclick="shareFile(${item.id}); event.stopPropagation();" title="${t('share')}">
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <circle cx="18" cy="5" r="3"></circle>
-                                                    <circle cx="6" cy="12" r="3"></circle>
-                                                    <circle cx="18" cy="19" r="3"></circle>
-                                                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                                                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                                                </svg>
-                                            </button>
-                                            <button class="action-btn delete-btn" onclick="showDeleteConfirm('file', ${item.id}, '${escapeHtml(item.name)}'); event.stopPropagation();" title="${t('delete')}">
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                                    <line x1="10" y1="11" x2="10" y2="17"></line>
-                                                    <line x1="14" y1="11" x2="14" y2="17"></line>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                `;
-
-                if (isMedia) {
-                    galleryItem.onclick = () => viewMedia(item);
-                }
-
-                galleryGrid.appendChild(galleryItem);
-            });
-        }
-
         function viewMedia(item) {
             const viewerContent = document.getElementById('viewerContent');
 
@@ -2156,11 +2351,11 @@
                 }
 
                 viewerContent.innerHTML = `
-                                    <video controls autoplay>
-                                        <source src="${API_BASE}/data/${item.id}" type="${mimeType}">
-                                        ${t('videoPlaybackError')}
-                                    </video>
-                                `;
+                                        <video controls autoplay>
+                                            <source src="${API_BASE}/data/${item.id}" type="${mimeType}">
+                                            ${t('videoPlaybackError')}
+                                        </video>
+                                    `;
             }
 
             showModal('viewerModal');
@@ -2513,6 +2708,15 @@
 
         // Select no album items by default
         document.getElementById('noAlbumItem').onclick = () => {
+            // Clean up lazy loading observer before switching
+            if (lazyLoadObserver) {
+                lazyLoadObserver.disconnect();
+            }
+
+            // Clear loaded images cache
+            loadedImages.clear();
+            preloadQueue.clear();
+
             currentAlbumId = -1;
             updateActiveAlbum();
             loadNoAlbumData();
@@ -2539,6 +2743,21 @@
 
         document.getElementById('albumNameInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') createAlbum();
+        });
+
+        // Handle window unload to clean up resources
+        window.addEventListener('beforeunload', () => {
+            if (lazyLoadObserver) {
+                lazyLoadObserver.disconnect();
+            }
+        });
+
+        // Clean up on page visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Stop preloading when page is hidden
+                preloadQueue.clear();
+            }
         });
 
         // Prevent zoom on input focus on iOS

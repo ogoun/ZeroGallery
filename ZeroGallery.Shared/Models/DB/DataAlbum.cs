@@ -40,6 +40,7 @@ namespace ZeroGallery.Shared.Models.DB
         /// <summary>
         /// Альбом находится в процессе удаления
         /// </summary>
+        [Indexed]
         public bool InRemoving { get; set; }
 
         public override bool Equals(object? obj)

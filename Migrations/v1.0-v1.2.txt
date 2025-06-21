@@ -1,0 +1,8 @@
+ALTER TABLE DataRecord ADD COLUMN PreviewStatus INTEGER default 1
+ALTER TABLE DataRecord ADD COLUMN ConvertStatus INTEGER default 1
+CREATE INDEX "DataRecord_ConvertStatus" on "DataRecord"("ConvertStatus")
+CREATE INDEX "DataRecord_InRemoving" on "DataRecord"("InRemoving")
+CREATE INDEX "DataRecord_PreviewStatus" on "DataRecord"("PreviewStatus")
+
+
+CREATE INDEX "DataAlbum_InRemoving" on "DataAlbum"("InRemoving")

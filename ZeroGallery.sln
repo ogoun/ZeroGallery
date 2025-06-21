@@ -13,7 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZeroGallery.Shared.Tests", 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Migrations", "Migrations", "{CC3BB6B8-C883-4320-86DE-59516C4ACF3A}"
 	ProjectSection(SolutionItems) = preProject
-		v0.0-v1.0.txt = v0.0-v1.0.txt
+		Migrations\v0.0-v1.0.txt = Migrations\v0.0-v1.0.txt
+		Migrations\v1.0-v1.2.txt = Migrations\v1.0-v1.2.txt
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VideoStreamingTestApp", "Tests\VideoStreamingTestApp\VideoStreamingTestApp.csproj", "{C4715B2F-9547-4A2C-A597-B8F5CCBB1285}"

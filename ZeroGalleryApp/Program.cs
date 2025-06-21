@@ -53,11 +53,26 @@ namespace ZeroGalleryApp
             {
                 config.port = env.First<int>("port");
             }
+
+            if (env.Contains("convert_video_to_mp4"))
+            {
+                config.convert_video_to_mp4 = env.First<bool>("convert_video_to_mp4");
+            }
+
+            if (env.Contains("convert_heic_to_jpg"))
+            {
+                config.convert_heic_to_jpg = env.First<bool>("convert_heic_to_jpg");
+            }
+
+            if (env.Contains("convert_tiff_to_jpg"))
+            {
+                config.convert_tiff_to_jpg = env.First<bool>("convert_tiff_to_jpg");
+            }
         }
 
         public static void Main(string[] args)
         {
-            Log.AddConsoleLogger();
+            Log.AddConsoleLogger(ZeroLevel.Logging.LogLevel.FullDebug);
 
             FFmpegHelper.ConfigureFFmpeg();
 
@@ -94,13 +109,11 @@ namespace ZeroGalleryApp
                 });
             });
 
+            builder.Services.AddSingleton(config);
+
             builder.Services.AddSingleton(new DataAlbumRepository(config.db_path));
 
             builder.Services.AddSingleton(new DataRecordRepository(config.db_path));
-
-            builder.Services.AddSingleton<Scavenger>();
-
-            builder.Services.AddSingleton(config);
 
             builder.Services.AddSingleton<DataStorage>();
 

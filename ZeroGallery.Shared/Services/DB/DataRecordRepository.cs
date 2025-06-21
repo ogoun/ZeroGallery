@@ -22,6 +22,10 @@ namespace ZeroGallery.Shared.Services.DB
 
         public IEnumerable<DataRecord> GetRemovingRecords() => SelectBy(r => r.InRemoving == true) ?? Enumerable.Empty<DataRecord>();
 
+        public IEnumerable<DataRecord> GetWaitingPreviewRecords() => SelectBy(r => r.InRemoving == false && r.PreviewStatus == 0) ?? Enumerable.Empty<DataRecord>();
+
+        public IEnumerable<DataRecord> GetWaitingConvertRecords() => SelectBy(r => r.InRemoving == false && r.ConvertStatus == 0) ?? Enumerable.Empty<DataRecord>();
+
         public long GetAlbumFilesCount(long albumId) => Count(r => r.AlbumId == albumId);
 
         protected override void DisposeStorageData()

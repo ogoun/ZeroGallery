@@ -51,7 +51,7 @@ namespace ZeroGallery.Shared.Models.DB
         /// Описание файла
         /// </summary>
         public string Description { get; set; }
-        
+
         /// <summary>
         /// Тип содержимого
         /// </summary>
@@ -65,7 +65,20 @@ namespace ZeroGallery.Shared.Models.DB
         /// <summary>
         /// Указывает что запись находится на удалении
         /// </summary>
+        [Indexed]
         public bool InRemoving { get; set; }
+
+        /// <summary>
+        /// Статус создания превью
+        /// </summary>
+        [Indexed]
+        public int PreviewStatus { get; set; }
+
+        /// <summary>
+        /// Статус конвертации
+        /// </summary>
+        [Indexed]
+        public int ConvertStatus { get; set; }
 
         public override bool Equals(object? obj)
         {
@@ -80,8 +93,8 @@ namespace ZeroGallery.Shared.Models.DB
         public bool Equals(DataRecord? other)
         {
             if (other == null) return false;
-            if(ReferenceEquals(null, other)) return true;
-            if(Id != other.Id) return false;
+            if (ReferenceEquals(null, other)) return true;
+            if (Id != other.Id) return false;
             if (AlbumId != other.AlbumId) return false;
             if (Size != other.Size) return false;
             if (CreatedTimestamp != other.CreatedTimestamp) return false;

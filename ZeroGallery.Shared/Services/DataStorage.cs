@@ -1,5 +1,4 @@
 ﻿using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
 using ZeroGallery.Shared.Models;
 using ZeroGallery.Shared.Models.DB;
 using ZeroGallery.Shared.Services.DB;
@@ -14,22 +13,16 @@ namespace ZeroGallery.Shared.Services
     /// Отвечает за хранение данных
     /// </summary>
     public class DataStorage
-        : IDisposable
     {
-        public const string VERSION = "1.0";
-
+        public const string VERSION = "1.2";
         /// <summary>
-        /// Максимальный размер стороны изображения для превью
+        /// Размер буфера при переносе данных из потока в поток
         /// </summary>
-        private const int MAX_PREVIEW_SIDE_SIZE = 512;
+        private const int DEFAULT_STREAM_BUFFER_SIZE = 16384;
         /// <summary>
         /// Количество подкаталогов в хранилище
         /// </summary>
         private const int SHARDS_COUNT = 255;
-        /// <summary>
-        /// Размер буфера при переносе данных из потока в поток
-        /// </summary>
-        protected const int DEFAULT_STREAM_BUFFER_SIZE = 16384;
         /// <summary>
         /// Локер на генерацию нового пути
         /// </summary>
@@ -58,12 +51,14 @@ namespace ZeroGallery.Shared.Services
         /// Для форматирования имени файла
         /// </summary>
         private readonly string _fileNameFormat;
-        /// <summary>
-        /// Конвертация изображений в jpg формат из других форматов для превью
-        /// </summary>
-        private readonly IImageConverter _imageConverter;
 
         private readonly Scavenger _scavenger;
+
+        private readonly DataPreviewProcessor _previewProcessor;
+
+        private readonly DataConverterProcessor _convertProcessor;
+
+        private readonly AppConfig _config;
 
         public DataStorage(AppConfig config,
             DataAlbumRepository albumRepository,
@@ -72,13 +67,14 @@ namespace ZeroGallery.Shared.Services
             if (albumRepository == null) throw new ArgumentNullException(nameof(albumRepository));
             if (recordsRepository == null) throw new ArgumentNullException(nameof(recordsRepository));
 
+            _config = config;
+
             // Количество нулей в int.max
             var zerosCount = Math.Floor(Math.Log10(int.MaxValue) + 1);
             _fileNameFormat = $"d{zerosCount}";
 
             _dataFolder = Path.Combine(config.data_folder, "data");
             _thumbsFolder = Path.Combine(config.data_folder, "thumbs");
-            _imageConverter = new UnifiedImageConverter();
 
             if (Path.IsPathRooted(_dataFolder) == false)
             {
@@ -99,10 +95,17 @@ namespace ZeroGallery.Shared.Services
 
             _scavenger = new Scavenger(_albums, _records, this);
             _scavenger.Run();
+
+            _previewProcessor = new DataPreviewProcessor(_records, this);
+            _previewProcessor.Run();
+
+            _convertProcessor = new DataConverterProcessor(_config, _records, this);
+            _convertProcessor.Run();
         }
 
         private void LoadCounter()
         {
+            Log.Debug("[DataStorage.LoadCounter] Started");
             _shardCounters.Clear();
             for (int i = 0; i < SHARDS_COUNT; i++)
             {
@@ -126,15 +129,20 @@ namespace ZeroGallery.Shared.Services
                     _shardCounters[i] = 0;
                 }
             }
+            Log.Debug("[DataStorage.LoadCounter] Completed");
         }
 
         public void DropAll()
         {
-            _records.Delete(_ => true);
-            _albums.Delete(_ => true);
+            Log.Debug("[DataStorage.DropAll] Started");
+            int records_removed = _records.Delete(_ => true);
+            Log.Info($"[DataStorage.DropAll] Removed '{records_removed}' data records");
+            int albums_removed = _albums.Delete(_ => true);
+            Log.Info($"[DataStorage.DropAll] Removed '{albums_removed}' album records");
             FSUtils.CleanAndTestFolder(_dataFolder);
             FSUtils.CleanAndTestFolder(_thumbsFolder);
             LoadCounter();
+            Log.Debug("[DataStorage.DropAll] Complete");
         }
 
         /// <summary>
@@ -143,6 +151,7 @@ namespace ZeroGallery.Shared.Services
         /// <param name="recordId"></param>
         public void RemoveRecord(long recordId, bool isAdmin)
         {
+            Log.Debug($"[DataStorage.RemoveRecord] '{recordId}' started{(isAdmin ? " as admin" : string.Empty)}");
             var record = _records.SelectBy(r => r.Id == recordId)?.FirstOrDefault();
             if (record != null)
             {
@@ -153,11 +162,13 @@ namespace ZeroGallery.Shared.Services
                         var album = _albums.Single(a => a.Id == record.AlbumId);
                         if (album.AllowRemoveData == false && isAdmin == false)
                         {
+                            Log.Error($"[DataStorage.RemoveRecord] Fault mark record '{record.Id}' for removing. Delete files from album '{record.AlbumId}' not allowed.");
                             throw new Exception("Delete files from album not allowed");
                         }
                     }
                     record.InRemoving = true;
                     _records.Update(record);
+                    Log.Info($"[DataStorage.RemoveRecord] Record '{record.Id}' marked for removing");
                 }
                 catch (Exception ex)
                 {
@@ -168,6 +179,7 @@ namespace ZeroGallery.Shared.Services
             {
                 throw new Exception($"File '{recordId}' not found");
             }
+            Log.Debug($"[DataStorage.RemoveRecord] '{recordId}'{(isAdmin ? " as admin" : string.Empty)} completed");
         }
 
         /// <summary>
@@ -175,11 +187,13 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public void RemoveAlbum(long albumId, bool isAdmin)
         {
+            Log.Debug($"[DataStorage.RemoveAlbum] '{albumId}' started{(isAdmin ? " as admin" : string.Empty)}");
             var album = _albums.SelectBy(r => r.Id == albumId)?.FirstOrDefault();
             if (album != null)
             {
                 if (album.AllowRemoveData == false && isAdmin == false)
                 {
+                    Log.Error($"[DataStorage.RemoveAlbum] Fault mark album '{albumId}' for removing. Delete files from album '{albumId}' not allowed.");
                     throw new Exception("Delete files from album not allowed");
                 }
 
@@ -190,15 +204,18 @@ namespace ZeroGallery.Shared.Services
                     {
                         record.InRemoving = true;
                         _records.Update(record);
+                        Log.Info($"[DataStorage.RemoveAlbum] Data record '{record.Id}' marked for removing");
                     }
                 }
                 album.InRemoving = true;
                 _albums.Update(album);
+                Log.Info($"[DataStorage.RemoveAlbum] Album '{albumId}' marked for removing");
             }
             else
             {
                 throw new Exception($"Album '{albumId}' not found");
             }
+            Log.Debug($"[DataStorage.RemoveAlbum] '{albumId}'{(isAdmin ? " as admin" : string.Empty)} completed");
         }
 
         /// <summary>
@@ -218,6 +235,7 @@ namespace ZeroGallery.Shared.Services
                 AllowRemoveData = allowRemoveData,
             };
             var r = _albums.AppendAndGet(album);
+            Log.Info($"[DataStorage.AppendAlbum] Created album '{r.Id}' ({r.Name})");
             return r;
         }
 
@@ -227,115 +245,63 @@ namespace ZeroGallery.Shared.Services
         public async Task<DataRecord> WriteData(string name, string description,
             string tags, long albumId, Stream dataStream)
         {
+            Log.Debug($"[DataStorage.WriteData] Started. Name: '{name ?? string.Empty}'. AlbumId: {albumId}.");
+
             var timestamp = Timestamp.UtcNow;
             var shardIndex = (int)(timestamp % SHARDS_COUNT);
             var (fileIndex, dataFilePath, thumbFilePath) = GetNewRelativePath(shardIndex);
             long fileSize;
             ImageTypeInfo imageInfo;
+
+            PreviewState previewState = PreviewState.WAITING;
+            ConvertDataState convertState = ConvertDataState.WAITING;
+
             using (var storeStream = new FileStream(dataFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None, DEFAULT_STREAM_BUFFER_SIZE))
             {
-                fileSize = await Transfer(dataStream, storeStream);
+                fileSize = await StreamHelper.Transfer(dataStream, storeStream);
                 imageInfo = MediaTypeDetector.GetDataTypeInfo(storeStream);
-
-                storeStream.Position = 0;
-
-                // Preview ------------------------
-                if (imageInfo.IsImage())
-                {
-                    byte[] jpgData;
-                    if (imageInfo.Extension != ImageTypeInfo.DEFAULT_IMAGE_EXTENSION)
-                    {
-                        jpgData = await _imageConverter.ConvertToJpgAsync(storeStream, imageInfo.Extension);
-                    }
-                    else
-                    {
-                        using (var ms = new MemoryStream())
-                        {
-                            await Transfer(storeStream, ms);
-                            ms.Position = 0;
-                            jpgData = ms.ToArray();
-                        }
-                    }
-
-                    using (var image = Image.Load(jpgData))
-                    {
-                        if (image.Width > MAX_PREVIEW_SIDE_SIZE ||
-                            image.Height > MAX_PREVIEW_SIDE_SIZE)
-                        {
-                            var max_side = (float)Math.Max(image.Width, image.Height);
-                            var k = (float)MAX_PREVIEW_SIDE_SIZE / max_side;
-
-                            var w = (int)(image.Width * k);
-                            var h = (int)(image.Height * k);
-
-                            image.Mutate(i => i.Resize(w, h));
-                        }
-                        image.SaveAsJpeg(thumbFilePath);
-                    }
-                }
-                // Preview ------------------------
+                await storeStream.FlushAsync();
+                storeStream.Close();
             }
 
-            // Convert .wmv and .avi  to .mp4 for suport in modern browsers
             if (imageInfo.IsVideo())
             {
-                try
+                if (imageInfo.Extension.IsEqual(".mp4") || _config.convert_video_to_mp4 == false)
                 {
-                    switch (imageInfo.Extension)
-                    {
-                        case ".wmv":
-                        case ".avi":
-                        case ".mov":
-                        case ".mkv":
-                            var output = FSUtils.GetAppLocalTemporaryFile() + ".mp4";
-                            var succsessfully_convert = await VideoConverter.ConvertToMp4Async(dataFilePath, output);
-                            if (succsessfully_convert)
-                            {
-                                File.Move(output, dataFilePath, true);
-                                imageInfo.Extension = ".mp4";
-                                imageInfo.MimeType = "video/mp4";
-                            }
-                            else
-                            {
-                                Log.Warning("[DataStorage.WriteData] Can't convert video file to .mp4");
-                            }
-                            break;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "[DataStorage.WriteData] Fault convert video file to .mp4");
-                }
-
-                // Preview к видео
-                var tempFileSource = dataFilePath + ".mp4"; // т.к. ffmpeg не осиливает файлы без расширения
-                var tempFileOutput = thumbFilePath + ".jpg";
-                try
-                {
-                    File.Move(dataFilePath, tempFileSource, true);
-                    if (await VideoThumbnailService.GenerateThumbnailAsync(tempFileSource, tempFileOutput))
-                    {
-                        File.Move(tempFileOutput, thumbFilePath, true);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "[DataStorage.WriteData] Fault create preview for video file");
-                }
-                finally
-                {
-                    if (!File.Exists(dataFilePath) && File.Exists(tempFileSource))
-                    {
-                        File.Move(tempFileSource, dataFilePath, true);
-                    }
+                    convertState = ConvertDataState.COMPLETED;
                 }
             }
-
+            else if (imageInfo.IsImage())
+            {
+                switch (imageInfo.Extension)
+                {
+                    case ".heic":
+                        if (!_config.convert_heic_to_jpg)
+                        {
+                            convertState = ConvertDataState.COMPLETED;
+                        }
+                        break;
+                    case ".tiff":
+                        if (!_config.convert_tiff_to_jpg)
+                        {
+                            convertState = ConvertDataState.COMPLETED;
+                        }
+                        break;
+                    default:
+                        convertState = ConvertDataState.COMPLETED;
+                        break;
+                }
+            }
+            else
+            {
+                previewState = PreviewState.NO_PREVIEW;
+                convertState = ConvertDataState.COMPLETED;
+            }
             var record = new DataRecord
             {
                 CreatedTimestamp = timestamp,
                 Description = description,
-                Name = name,
+                Name = name ?? string.Empty,
                 AlbumId = albumId,
                 Index = fileIndex,
                 ShardIndex = shardIndex,
@@ -343,7 +309,10 @@ namespace ZeroGallery.Shared.Services
                 Tags = tags ?? string.Empty,
                 MimeType = imageInfo.MimeType,
                 Extension = imageInfo.Extension,
+                ConvertStatus = (int)convertState,
+                PreviewStatus = (int)previewState,
             };
+            Log.Info($"[DataStorage.WriteData] Data stored. Id: {record.Id} Name: '{name ?? string.Empty}'. AlbumId: {albumId}.");
             return _records.AppendAndGet(record);
         }
 
@@ -352,6 +321,7 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public IEnumerable<DataAlbum> GetAlbums()
         {
+            Log.Debug("[DataStorage.GetAlbums]");
             return _albums.SelectBy(r => r.InRemoving == false);
         }
 
@@ -360,6 +330,7 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public IEnumerable<DataRecord> GetAllData()
         {
+            Log.Debug("[DataStorage.GetAllData]");
             return _records.SelectBy(r => r.InRemoving == false);
         }
 
@@ -368,6 +339,7 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public IEnumerable<DataRecord> GetDataWithoutAlbums()
         {
+            Log.Debug("[DataStorage.GetDataWithoutAlbums]");
             return _records.SelectBy(r => r.AlbumId == -1 && r.InRemoving == false);
         }
 
@@ -377,6 +349,7 @@ namespace ZeroGallery.Shared.Services
         /// <param name="albumId"></param>
         public IEnumerable<DataRecord> GetDataByAlbum(long albumId)
         {
+            Log.Debug($"[DataStorage.GetDataByAlbum] Album '{albumId}'");
             return _records.SelectBy(r => r.AlbumId == albumId && r.InRemoving == false);
         }
 
@@ -385,26 +358,9 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public DataFileInfo GetPreview(long id)
         {
+            Log.Debug($"[DataStorage.GetPreview] Record '{id}'");
             var rec = _records.Single(c => c.Id == id && c.InRemoving == false);
             return GetPreview(rec);
-        }
-
-        public DataFileInfo GetPreview(DataRecord rec)
-        {
-            if (rec != null)
-            {
-                var relativePath = GetRelativePath(rec);
-                if (string.IsNullOrWhiteSpace(relativePath) == false)
-                {
-                    var path = Path.Combine(_thumbsFolder, relativePath);
-                    if (File.Exists(path))
-                    {
-                        return new DataFileInfo(path, rec.Name, "image/jpeg", GetDataType(rec));
-                    }
-                }
-                return new DataFileInfo(null!, rec.Name, "image/jpeg", GetDataType(rec));
-            }
-            return default!;
         }
 
         /// <summary>
@@ -412,22 +368,9 @@ namespace ZeroGallery.Shared.Services
         /// </summary>
         public DataFileInfo GetData(long id)
         {
+            Log.Debug($"[DataStorage.GetData] Record '{id}'");
             var rec = _records.Single(c => c.Id == id && c.InRemoving == false);
             return GetData(rec);
-        }
-
-        public DataFileInfo GetData(DataRecord rec)
-        {
-            var relativePath = GetRelativePath(rec);
-            if (string.IsNullOrWhiteSpace(relativePath) == false)
-            {
-                var path = Path.Combine(_dataFolder, relativePath);
-                if (File.Exists(path))
-                {
-                    return new DataFileInfo(path, rec.Name, rec.MimeType, GetDataType(rec));
-                }
-            }
-            return default!;
         }
 
         /// <summary>
@@ -457,6 +400,55 @@ namespace ZeroGallery.Shared.Services
             throw new Exception($"File '{id}' does not exists");
         }
 
+
+        internal string GetPreviewPath(DataRecord rec)
+        {
+            if (rec != null)
+            {
+                var relativePath = GetRelativePath(rec);
+                if (string.IsNullOrWhiteSpace(relativePath) == false)
+                {
+                    return Path.Combine(_thumbsFolder, relativePath);
+                }
+            }
+            return default!;
+        }
+
+        internal DataFileInfo GetData(DataRecord rec)
+        {
+            var relativePath = GetRelativePath(rec);
+            if (string.IsNullOrWhiteSpace(relativePath) == false)
+            {
+                var path = Path.Combine(_dataFolder, relativePath);
+                if (File.Exists(path))
+                {
+                    return new DataFileInfo(path, rec.Name, rec.MimeType, GetDataType(rec));
+                }
+            }
+            return default!;
+        }
+
+        internal DataFileInfo GetPreview(DataRecord rec)
+        {
+            if (rec != null)
+            {
+                if (rec.PreviewStatus == (int)PreviewState.HAS_PREVIEW)
+                {
+                    var relativePath = GetRelativePath(rec);
+                    if (string.IsNullOrWhiteSpace(relativePath) == false)
+                    {
+                        var path = Path.Combine(_thumbsFolder, relativePath);
+                        if (File.Exists(path))
+                        {
+                            return new DataFileInfo(path, rec.Name, "image/jpeg", GetDataType(rec));
+                        }
+                    }
+                }
+                return new DataFileInfo(null!, rec.Name, "image/jpeg", GetDataType(rec));
+            }
+            return default!;
+        }
+
         /// <summary>
         /// Получение относительного пути к файлу
         /// </summary>
@@ -467,31 +459,6 @@ namespace ZeroGallery.Shared.Services
                 return Path.Combine(rec.ShardIndex.ToString("d3"), rec.Index.ToString(_fileNameFormat));
             }
             return default!;
-        }
-
-        /// <summary>
-        /// Копирование данных из потока в поток
-        /// </summary>
-        protected static async Task<long> Transfer(Stream input, Stream output)
-        {
-            if (input.CanRead == false)
-            {
-                throw new InvalidOperationException("Input stream can not be read.");
-            }
-            if (output.CanWrite == false)
-            {
-                throw new InvalidOperationException("Output stream can not be write.");
-            }
-            long totalBytes = 0;
-            var readed = 0;
-            var buffer = new byte[DEFAULT_STREAM_BUFFER_SIZE];
-            while ((readed = input.Read(buffer, 0, buffer.Length)) != 0)
-            {
-                await output.WriteAsync(buffer, 0, readed);
-                totalBytes += readed;
-            }
-            await output.FlushAsync();
-            return readed;
         }
         /// <summary>
         /// Получение путей для нового файла данных
@@ -530,11 +497,6 @@ namespace ZeroGallery.Shared.Services
             if (KnownImages.IsImage(rec.Extension)) return DataType.Image;
             if (KnownVideos.IsVideo(rec.Extension)) return DataType.Video;
             return DataType.Binary;
-        }
-
-        public void Dispose()
-        {
-            _imageConverter?.Dispose();
         }
     }
 }
