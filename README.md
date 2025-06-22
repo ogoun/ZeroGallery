@@ -1,7 +1,7 @@
 # ZeroGallery
 Simple media gallery
 
-![ZeroGallery](https://github.com/ogoun/ogoun/blob/main/images/zerogallery/01.png)
+![ZeroGallery](https://github.com/ogoun/ogoun/blob/main/images/zerogallery/02.png)
 
 ## Русский
 
