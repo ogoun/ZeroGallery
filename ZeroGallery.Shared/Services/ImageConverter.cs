@@ -41,7 +41,14 @@ namespace ZeroGallery.Shared.Services
                 ["heic"] = ConvertHeicWithMagick,
                 ["heif"] = ConvertHeicWithMagick,
                 ["svg"] = ConvertSvgWithSkia,
-                ["ico"] = ConvertIcoWithMagick
+                ["ico"] = ConvertIcoWithMagick,
+
+                // RAW formats - all use ImageMagick for conversion
+                ["dng"] = ConvertRawWithMagick,
+                ["cr2"] = ConvertRawWithMagick,  // Canon RAW 2
+                ["nef"] = ConvertRawWithMagick,  // Nikon Electronic Format
+                ["arw"] = ConvertRawWithMagick,  // Sony Alpha RAW
+                ["orf"] = ConvertRawWithMagick,  // Olympus RAW Format
             };
         }
 
@@ -176,6 +183,72 @@ namespace ZeroGallery.Shared.Services
             largestIcon.Quality = (uint)quality;
 
             return largestIcon.ToByteArray();
+        }
+
+        /// <summary>
+        /// Универсальный метод для конвертации RAW форматов (DNG, CR2, NEF, ARW, ORF)
+        /// </summary>
+        private async Task<byte[]> ConvertRawWithMagick(Stream inputStream, int quality,
+            CancellationToken cancellationToken)
+        {
+            var buffer = ArrayPool<byte>.Shared.Rent((int)inputStream.Length);
+            try
+            {
+                var bytesRead = await inputStream.ReadAsync(buffer.AsMemory(0, (int)inputStream.Length),
+                    cancellationToken);
+
+                // Используем базовые настройки, которые работают для всех RAW форматов
+                // ImageMagick автоматически определит тип RAW файла
+                using var image = new MagickImage(buffer, 0, (uint)bytesRead);
+
+                // Настройки обработки изображения
+                image.Format = MagickFormat.Jpeg;
+                image.Quality = (uint)quality;
+
+                // Автоматическая коррекция уровней для лучшего отображения
+                image.AutoLevel();
+
+                // Опционально: автоматическая коррекция гаммы
+                image.AutoGamma();
+
+                // Нормализация изображения для улучшения контраста
+                image.Normalize();
+
+                // Применяем цветовой профиль sRGB для корректного отображения
+                image.ColorSpace = ColorSpace.sRGB;
+
+                // Повышение резкости для компенсации потерь при конвертации из RAW
+                image.UnsharpMask(0.5, 0.5, 3, 0.05);
+
+                // Удаляем лишние метаданные для уменьшения размера
+                image.Strip();
+
+                // Ограничиваем максимальный размер для больших RAW файлов
+                const int maxDimension = 4096;
+                if (image.Width > maxDimension || image.Height > maxDimension)
+                {
+                    var geometry = new MagickGeometry(maxDimension, maxDimension)
+                    {
+                        IgnoreAspectRatio = false,
+                        Greater = false
+                    };
+                    image.Resize(geometry);
+                }
+
+                return image.ToByteArray();
+            }
+            catch (MagickException ex) when (ex.Message.Contains("delegate"))
+            {
+                // Если ImageMagick не может обработать RAW из-за отсутствия делегата,
+                // пробуем альтернативный метод
+                throw new NotSupportedException(
+                    $"RAW format processing requires additional ImageMagick delegates. " +
+                    $"Ensure dcraw or LibRaw is installed. Original error: {ex.Message}", ex);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
         #endregion
 

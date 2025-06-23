@@ -49,25 +49,23 @@ namespace ZeroGalleryApp
                 }
             }
 
-            if (env.Contains("port"))
-            {
-                config.port = env.First<int>("port");
-            }
+            if (env.Contains("port")) config.port = env.First<int>("port");
 
-            if (env.Contains("convert_video_to_mp4"))
-            {
-                config.convert_video_to_mp4 = env.First<bool>("convert_video_to_mp4");
-            }
+            if (env.Contains("convert_video_to_mp4")) config.convert_video_to_mp4 = env.First<bool>("convert_video_to_mp4");
 
-            if (env.Contains("convert_heic_to_jpg"))
-            {
-                config.convert_heic_to_jpg = env.First<bool>("convert_heic_to_jpg");
-            }
+            if (env.Contains("convert_heic_to_jpg")) config.convert_heic_to_jpg = env.First<bool>("convert_heic_to_jpg");
 
-            if (env.Contains("convert_tiff_to_jpg"))
-            {
-                config.convert_tiff_to_jpg = env.First<bool>("convert_tiff_to_jpg");
-            }
+            if (env.Contains("convert_tiff_to_jpg")) config.convert_tiff_to_jpg = env.First<bool>("convert_tiff_to_jpg");
+
+            if (env.Contains("convert_dng_to_jpg")) config.convert_dng_to_jpg = env.First<bool>("convert_dng_to_jpg");
+
+            if (env.Contains("convert_cr2_to_jpg")) config.convert_cr2_to_jpg = env.First<bool>("convert_cr2_to_jpg");
+
+            if (env.Contains("convert_nef_to_jpg")) config.convert_nef_to_jpg = env.First<bool>("convert_nef_to_jpg");
+
+            if (env.Contains("convert_arw_to_jpg")) config.convert_arw_to_jpg = env.First<bool>("convert_arw_to_jpg");
+
+            if (env.Contains("convert_orf_to_jpg")) config.convert_orf_to_jpg = env.First<bool>("convert_orf_to_jpg");
         }
 
         public static void Main(string[] args)

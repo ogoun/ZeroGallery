@@ -40,6 +40,70 @@ namespace ZeroGallery.Shared.Services
                               buffer[10] == 0x42 && buffer[11] == 0x50
             },
         
+            // ===== RAW ФОРМАТЫ =====
+            
+            // Canon CR2 - наиболее определённый формат с уникальной сигнатурой на позиции 8
+            new FileSignature {
+                Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },
+                Offset = 0,
+                Extension = ".cr2",
+                MimeType = "image/x-canon-cr2",
+                AdditionalCheck = buffer => buffer.Length >= 12 &&
+                                  buffer[8] == 0x43 && buffer[9] == 0x52 && // ASCII "CR"
+                                  buffer[10] == 0x02 && buffer[11] == 0x00  // Version 2.0
+            },
+            
+            // Olympus ORF - уникальные сигнатуры
+            // Big-endian версия
+            new FileSignature { Signature = new byte[] { 0x4D, 0x4D, 0x4F, 0x52 }, Offset = 0, Extension = ".orf", MimeType = "image/x-olympus-orf" }, // "MMOR"
+            // Little-endian версия
+            new FileSignature { Signature = new byte[] { 0x49, 0x49, 0x52, 0x4F }, Offset = 0, Extension = ".orf", MimeType = "image/x-olympus-orf" }, // "IIRO"
+            // Вариант IIRS
+            new FileSignature { Signature = new byte[] { 0x49, 0x49, 0x52, 0x53 }, Offset = 0, Extension = ".orf", MimeType = "image/x-olympus-orf" }, // "IIRS"
+            
+            // DNG (Digital Negative) - использует стандартные TIFF заголовки с проверкой содержимого
+            new FileSignature {
+                Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },
+                Offset = 0,
+                Extension = ".dng",
+                MimeType = "image/x-adobe-dng",
+                AdditionalCheck = buffer => CheckDngFormat(buffer)
+            },
+            new FileSignature {
+                Signature = new byte[] { 0x4D, 0x4D, 0x00, 0x2A },
+                Offset = 0,
+                Extension = ".dng",
+                MimeType = "image/x-adobe-dng",
+                AdditionalCheck = buffer => CheckDngFormat(buffer)
+            },
+            
+            // Nikon NEF - использует TIFF заголовки, требует дополнительной проверки
+            // Big-endian (наиболее распространённый)
+            new FileSignature {
+                Signature = new byte[] { 0x4D, 0x4D, 0x00, 0x2A },
+                Offset = 0,
+                Extension = ".nef",
+                MimeType = "image/x-nikon-nef",
+                AdditionalCheck = buffer => CheckNefFormat(buffer)
+            },
+            // Little-endian (некоторые модели Coolpix)
+            new FileSignature {
+                Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },
+                Offset = 0,
+                Extension = ".nef",
+                MimeType = "image/x-nikon-nef",
+                AdditionalCheck = buffer => CheckNefFormat(buffer)
+            },
+            
+            // Sony ARW - использует TIFF заголовок с проверкой
+            new FileSignature {
+                Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },
+                Offset = 0,
+                Extension = ".arw",
+                MimeType = "image/x-sony-arw",
+                AdditionalCheck = buffer => CheckArwFormat(buffer)
+            },
+        
             // TIFF - Little Endian
             new FileSignature { Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },Offset = 0, Extension = ".tiff", MimeType = "image/tiff"  },
             // TIFF - Big Endian
@@ -176,6 +240,37 @@ namespace ZeroGallery.Shared.Services
             if (buffer.Length < 376)
                 return false;
             return buffer[0] == 0x47 && buffer[188] == 0x47;
+        }
+
+        // Дополнительные методы проверки для RAW форматов
+
+        private static bool CheckDngFormat(byte[] buffer)
+        {
+            // DNG файлы являются TIFF файлами с специфическими тегами Adobe
+            // Для полной проверки потребовалось бы парсить IFD структуру TIFF
+            // Здесь используем упрощённую проверку по содержимому
+            if (buffer.Length < 100) return false;
+
+            string bufferAsString = Encoding.ASCII.GetString(buffer, 0, Math.Min(buffer.Length, 512));
+            return bufferAsString.Contains("Adobe") || bufferAsString.Contains("DNG");
+        }
+
+        private static bool CheckNefFormat(byte[] buffer)
+        {
+            // NEF файлы содержат строку "NIKON" в начале файла
+            if (buffer.Length < 100) return false;
+
+            string bufferAsString = Encoding.ASCII.GetString(buffer, 0, Math.Min(buffer.Length, 512));
+            return bufferAsString.Contains("NIKON") || bufferAsString.Contains("COOLPIX");
+        }
+
+        private static bool CheckArwFormat(byte[] buffer)
+        {
+            // ARW файлы содержат информацию о Sony в метаданных
+            if (buffer.Length < 100) return false;
+
+            string bufferAsString = Encoding.ASCII.GetString(buffer, 0, Math.Min(buffer.Length, 512));
+            return bufferAsString.Contains("SONY") || bufferAsString.Contains("ARW");
         }
     }
 }

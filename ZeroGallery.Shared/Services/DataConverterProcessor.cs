@@ -37,7 +37,13 @@ namespace ZeroGallery.Shared.Services
                 {
                     if (KnownImages.IsImage(record.Extension))
                     {
-                        if (_config.convert_heic_to_jpg || _config.convert_tiff_to_jpg)
+                        if (_config.convert_heic_to_jpg 
+                            || _config.convert_tiff_to_jpg
+                            || _config.convert_dng_to_jpg
+                            || _config.convert_cr2_to_jpg
+                            || _config.convert_nef_to_jpg
+                            || _config.convert_arw_to_jpg
+                            || _config.convert_orf_to_jpg)
                         {
                             await HandleConvertImage(record);
                         }
@@ -76,68 +82,37 @@ namespace ZeroGallery.Shared.Services
         private async Task HandleConvertImage(DataRecord record)
         {
             byte[] converted;
+            bool need_convert = false;
             switch (record.Extension)
             {
-                case ".heic":
-                    if (_config.convert_heic_to_jpg)
-                    {
-                        var data = _storage.GetData(record);
-                        var thumbFilePath = _storage.GetPreviewPath(record);
-
-                        using (var dataStream = File.OpenRead(data.FilePath))
-                        {
-                            converted = await _imageConverter.ConvertToJpgAsync(dataStream, record.Extension);
-                        }
-
-                        File.Delete(data.FilePath);
-                        File.WriteAllBytes(data.FilePath, converted);
-
-                        record.ConvertStatus = (int)ConvertDataState.COMPLETED;
-                        record.Extension = ".jpg";
-                        record.MimeType = "image/jpeg";
-
-                        _records.Update(record);
-
-                        Log.Info($"[DataConverterProcessor.HandleConvertImage] HEIC file converted to JPG. Record '{record.Id}'");
-                    }
-                    else
-                    {
-                        record.ConvertStatus = (int)ConvertDataState.COMPLETED;
-                        _records.Update(record);
-                    }
-                    break;
-                case ".tiff":
-                    if (_config.convert_tiff_to_jpg)
-                    {
-                        var data = _storage.GetData(record);
-                        var thumbFilePath = _storage.GetPreviewPath(record);
-
-                        using (var dataStream = File.OpenRead(data.FilePath))
-                        {
-                            converted = await _imageConverter.ConvertToJpgAsync(dataStream, record.Extension);
-                        }
-
-                        File.Delete(data.FilePath);
-                        File.WriteAllBytes(data.FilePath, converted);
-
-                        record.ConvertStatus = (int)ConvertDataState.COMPLETED;
-                        record.Extension = ".jpg";
-                        record.MimeType = "image/jpeg";
-
-                        _records.Update(record);
-                        Log.Info($"[DataConverterProcessor.HandleConvertImage] TIFF file converted to JPG. Record '{record.Id}'");
-                    }
-                    else
-                    {
-                        record.ConvertStatus = (int)ConvertDataState.COMPLETED;
-                        _records.Update(record);
-                    }
-                    break;
-                default:
-                    record.ConvertStatus = (int)ConvertDataState.COMPLETED;
-                    _records.Update(record);
-                    break;
+                case ".heic": need_convert = _config.convert_heic_to_jpg; break;
+                case ".tiff": need_convert = _config.convert_tiff_to_jpg; break;
+                case ".dng": need_convert = _config.convert_dng_to_jpg; break;
+                case ".cr2": need_convert = _config.convert_cr2_to_jpg; break;
+                case ".nef": need_convert = _config.convert_nef_to_jpg; break;
+                case ".arw": need_convert = _config.convert_arw_to_jpg; break;
+                case ".orf": need_convert = _config.convert_orf_to_jpg; break;
             }
+            if (need_convert)
+            {
+                var ext = record.Extension;
+                var data = _storage.GetData(record);
+                var thumbFilePath = _storage.GetPreviewPath(record);
+                using (var dataStream = File.OpenRead(data.FilePath))
+                {
+                    converted = await _imageConverter.ConvertToJpgAsync(dataStream, record.Extension);
+                }
+                File.Delete(data.FilePath);
+                File.WriteAllBytes(data.FilePath, converted);
+                
+                record.Extension = ".jpg";
+                record.MimeType = "image/jpeg";
+
+                Log.Info($"[DataConverterProcessor.HandleConvertImage] Data converted from {ext} to .jpg. Record '{record.Id}'");
+            }
+
+            record.ConvertStatus = (int)ConvertDataState.COMPLETED;
+            _records.Update(record);
         }
 
         private async Task HandleConvertVideo(DataRecord record)
