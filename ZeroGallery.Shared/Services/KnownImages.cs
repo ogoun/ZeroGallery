@@ -20,6 +20,8 @@
             ".nef",
             ".arw",
             ".orf",
+            ".sr2",
+            ".srf",
         };
         public static bool IsImage(string extension) => _knownImageExtensions.Contains(extension.ToLowerInvariant());
     }

@@ -103,6 +103,24 @@ namespace ZeroGallery.Shared.Services
                 MimeType = "image/x-sony-arw",
                 AdditionalCheck = buffer => CheckArwFormat(buffer)
             },
+
+            // Sony SR2 - использует TIFF заголовок с проверкой
+            new FileSignature {
+                Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },
+                Offset = 0,
+                Extension = ".sr2",
+                MimeType = "image/x-sony-sr2",
+                AdditionalCheck = buffer => CheckSr2Format(buffer)
+            },
+            
+            // Sony SRF - использует TIFF заголовок с проверкой
+            new FileSignature {
+                Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },
+                Offset = 0,
+                Extension = ".srf",
+                MimeType = "image/x-sony-srf",
+                AdditionalCheck = buffer => CheckSrfFormat(buffer)
+            },
         
             // TIFF - Little Endian
             new FileSignature { Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },Offset = 0, Extension = ".tiff", MimeType = "image/tiff"  },
@@ -271,6 +289,26 @@ namespace ZeroGallery.Shared.Services
 
             string bufferAsString = Encoding.ASCII.GetString(buffer, 0, Math.Min(buffer.Length, 512));
             return bufferAsString.Contains("SONY") || bufferAsString.Contains("ARW");
+        }
+
+        private static bool CheckSr2Format(byte[] buffer)
+        {
+            // SR2 файлы содержат информацию о Sony и специфичные структуры SR2
+            if (buffer.Length < 100) return false;
+
+            string bufferAsString = Encoding.ASCII.GetString(buffer, 0, Math.Min(buffer.Length, 512));
+            return bufferAsString.Contains("SONY") &&
+                   (bufferAsString.Contains("SR2") || bufferAsString.Contains("DSC-R1"));
+        }
+
+        private static bool CheckSrfFormat(byte[] buffer)
+        {
+            // SRF файлы содержат информацию о Sony и специфичные структуры SRF
+            if (buffer.Length < 100) return false;
+
+            string bufferAsString = Encoding.ASCII.GetString(buffer, 0, Math.Min(buffer.Length, 512));
+            return bufferAsString.Contains("SONY") &&
+                   (bufferAsString.Contains("SRF") || bufferAsString.Contains("DSC-F828"));
         }
     }
 }

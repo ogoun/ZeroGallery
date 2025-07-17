@@ -9,24 +9,33 @@ namespace ZeroGallery.Shared.Tests
     {
         private readonly List<string> images = new List<string>
         {
-            "./images/01.png",
-            "./images/02.jpg",
-            "./images/03.bmp",
-            "./images/04.gif",
-            "./images/05.heic",
-            "./images/06.ico",
-            "./images/07.svg",
-            "./images/08.tiff",
-            "./images/09.webp",
+            "./images/sample.png",
+            "./images/sample.jpg",
+            "./images/sample.bmp",
+            "./images/sample.gif",
+            "./images/sample.heic",
+            "./images/sample.ico",
+            "./images/sample.svg",
+            "./images/sample.tiff",
+            "./images/sample.webp",
+
+            // RAW
+            "./images/sample.dng",
+            "./images/sample.cr2",
+            "./images/sample.nef",
+            "./images/sample.arw",
+            "./images/sample.orf",
+            "./images/sample.sr2",
+            "./images/sample.srf",
         };
 
         private readonly List<string> videos = new List<string>
         {
-            "./images/10.mov",
-            "./images/11.mp4",
-            "./images/12.avi",
-            "./images/13.webm",
-            "./images/14.wmv",
+            "./images/sample.mov",
+            "./images/sample.mp4",
+            "./images/sample.avi",
+            "./images/sample.webm",
+            "./images/sample.wmv",
         };
 
         private AppConfig appConfig;

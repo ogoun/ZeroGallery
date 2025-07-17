@@ -49,6 +49,8 @@ namespace ZeroGallery.Shared.Services
                 ["nef"] = ConvertRawWithMagick,  // Nikon Electronic Format
                 ["arw"] = ConvertRawWithMagick,  // Sony Alpha RAW
                 ["orf"] = ConvertRawWithMagick,  // Olympus RAW Format
+                ["sr2"] = ConvertRawWithMagick,  // Sony RAW 2
+                ["srf"] = ConvertRawWithMagick,  // Sony RAW Format
             };
         }
 
@@ -186,7 +188,7 @@ namespace ZeroGallery.Shared.Services
         }
 
         /// <summary>
-        /// Универсальный метод для конвертации RAW форматов (DNG, CR2, NEF, ARW, ORF)
+        /// Универсальный метод для конвертации RAW форматов (DNG, CR2, NEF, ARW, ORF, SR2, SRF)
         /// </summary>
         private async Task<byte[]> ConvertRawWithMagick(Stream inputStream, int quality,
             CancellationToken cancellationToken)

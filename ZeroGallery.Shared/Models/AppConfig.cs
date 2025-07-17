@@ -16,5 +16,7 @@
         public bool convert_nef_to_jpg { get; set; } = true;
         public bool convert_arw_to_jpg { get; set; } = true;
         public bool convert_orf_to_jpg { get; set; } = true;
+        public bool convert_sr2_to_jpg { get; set; } = true;
+        public bool convert_srf_to_jpg { get; set; } = true;
     }
 }

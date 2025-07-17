@@ -92,6 +92,8 @@ namespace ZeroGallery.Shared.Services
                 case ".nef": need_convert = _config.convert_nef_to_jpg; break;
                 case ".arw": need_convert = _config.convert_arw_to_jpg; break;
                 case ".orf": need_convert = _config.convert_orf_to_jpg; break;
+                case ".sr2": need_convert = _config.convert_sr2_to_jpg; break;
+                case ".srf": need_convert = _config.convert_srf_to_jpg; break;
             }
             if (need_convert)
             {

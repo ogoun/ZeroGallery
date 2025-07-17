@@ -66,6 +66,10 @@ namespace ZeroGalleryApp
             if (env.Contains("convert_arw_to_jpg")) config.convert_arw_to_jpg = env.First<bool>("convert_arw_to_jpg");
 
             if (env.Contains("convert_orf_to_jpg")) config.convert_orf_to_jpg = env.First<bool>("convert_orf_to_jpg");
+
+            if (env.Contains("convert_sr2_to_jpg")) config.convert_sr2_to_jpg = env.First<bool>("convert_sr2_to_jpg");
+
+            if (env.Contains("convert_srf_to_jpg")) config.convert_srf_to_jpg = env.First<bool>("convert_srf_to_jpg");
         }
 
         public static void Main(string[] args)
