@@ -29,7 +29,7 @@
                 totalBytes += readed;
             }
             await output.FlushAsync();
-            return readed;
+            return totalBytes;
         }
     }
 }

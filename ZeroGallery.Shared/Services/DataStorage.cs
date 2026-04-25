@@ -109,27 +109,82 @@ namespace ZeroGallery.Shared.Services
             _shardCounters.Clear();
             for (int i = 0; i < SHARDS_COUNT; i++)
             {
-                var folder = GetShardDataFolder(i);
-                var dir = new DirectoryInfo(folder);
-                if (dir.Exists)
-                {
-                    var names = dir.GetFiles().Select(f => f.Name);
-                    if (names.Any())
-                    {
-                        var max_index = names.Select(s => int.Parse(s)).Max();
-                        _shardCounters[i] = max_index;
-                    }
-                    else
-                    {
-                        _shardCounters[i] = 0;
-                    }
-                }
-                else
-                {
-                    _shardCounters[i] = 0;
-                }
+                var dataMax = CleanupShardFolder(GetShardDataFolder(i));
+                var thumbMax = CleanupShardFolder(GetShardThumbsFolder(i));
+                _shardCounters[i] = Math.Max(dataMax, thumbMax);
             }
             Log.Debug("[DataStorage.LoadCounter] Completed");
+        }
+
+        /// <summary>
+        /// Чистит мусор в каталоге шарда и возвращает максимальный валидный индекс.
+        /// Файлы с числовым именем — это валидные данные (или превью).
+        /// Файлы вида '<index>.<ext>' — следы прерванного видео-preview процесса:
+        /// если файл с именем '<index>' отсутствует — пытаемся восстановить (переименовать),
+        /// если присутствует — удаляем как дубликат.
+        /// Все прочие файлы — удаляем.
+        /// </summary>
+        private int CleanupShardFolder(string folder)
+        {
+            var dir = new DirectoryInfo(folder);
+            if (!dir.Exists) return 0;
+
+            var files = dir.GetFiles();
+            var numericNames = new HashSet<string>(
+                files.Where(f => int.TryParse(f.Name, out _)).Select(f => f.Name),
+                StringComparer.Ordinal);
+
+            int max = 0;
+            foreach (var file in files)
+            {
+                if (int.TryParse(file.Name, out var idx))
+                {
+                    if (idx > max) max = idx;
+                    continue;
+                }
+
+                var baseName = Path.GetFileNameWithoutExtension(file.Name);
+                if (int.TryParse(baseName, out var origIdx) && origIdx > 0)
+                {
+                    if (!numericNames.Contains(baseName))
+                    {
+                        try
+                        {
+                            var targetPath = Path.Combine(folder, baseName);
+                            File.Move(file.FullName, targetPath, false);
+                            Log.Warning($"[DataStorage.CleanupShardFolder] Recovered orphan file '{file.FullName}' -> '{targetPath}'");
+                            numericNames.Add(baseName);
+                            if (origIdx > max) max = origIdx;
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error(ex, $"[DataStorage.CleanupShardFolder] Failed to recover orphan '{file.FullName}'");
+                        }
+                        continue;
+                    }
+                    try
+                    {
+                        File.Delete(file.FullName);
+                        Log.Warning($"[DataStorage.CleanupShardFolder] Removed duplicate orphan '{file.FullName}'");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, $"[DataStorage.CleanupShardFolder] Failed to remove duplicate orphan '{file.FullName}'");
+                    }
+                    continue;
+                }
+
+                try
+                {
+                    File.Delete(file.FullName);
+                    Log.Warning($"[DataStorage.CleanupShardFolder] Removed garbage file '{file.FullName}'");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, $"[DataStorage.CleanupShardFolder] Failed to remove garbage file '{file.FullName}'");
+                }
+            }
+            return max;
         }
 
         public void DropAll()
@@ -160,7 +215,7 @@ namespace ZeroGallery.Shared.Services
                     if (record.AlbumId != -1)
                     {
                         var album = _albums.Single(a => a.Id == record.AlbumId);
-                        if (album.AllowRemoveData == false && isAdmin == false)
+                        if (album != null && album.AllowRemoveData == false && isAdmin == false)
                         {
                             Log.Error($"[DataStorage.RemoveRecord] Fault mark record '{record.Id}' for removing. Delete files from album '{record.AlbumId}' not allowed.");
                             throw new Exception("Delete files from album not allowed");
@@ -283,6 +338,48 @@ namespace ZeroGallery.Shared.Services
                         break;
                     case ".tiff":
                         if (!_config.convert_tiff_to_jpg)
+                        {
+                            convertState = ConvertDataState.COMPLETED;
+                        }
+                        break;
+                    case ".dng":
+                        if (!_config.convert_dng_to_jpg)
+                        {
+                            convertState = ConvertDataState.COMPLETED;
+                        }
+                        break;
+                    case ".cr2":
+                        if (!_config.convert_cr2_to_jpg)
+                        {
+                            convertState = ConvertDataState.COMPLETED;
+                        }
+                        break;
+                    case ".nef":
+                        if (!_config.convert_nef_to_jpg)
+                        {
+                            convertState = ConvertDataState.COMPLETED;
+                        }
+                        break;
+                    case ".arw":
+                        if (!_config.convert_arw_to_jpg)
+                        {
+                            convertState = ConvertDataState.COMPLETED;
+                        }
+                        break;
+                    case ".orf":
+                        if (!_config.convert_orf_to_jpg)
+                        {
+                            convertState = ConvertDataState.COMPLETED;
+                        }
+                        break;
+                    case ".sr2":
+                        if (!_config.convert_sr2_to_jpg)
+                        {
+                            convertState = ConvertDataState.COMPLETED;
+                        }
+                        break;
+                    case ".srf":
+                        if (!_config.convert_srf_to_jpg)
                         {
                             convertState = ConvertDataState.COMPLETED;
                         }

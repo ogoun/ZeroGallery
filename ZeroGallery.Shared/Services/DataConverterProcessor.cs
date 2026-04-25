@@ -13,6 +13,7 @@ namespace ZeroGallery.Shared.Services
         private readonly DataRecordRepository _records;
         private readonly DataStorage _storage;
         private readonly AppConfig _config;
+        private int _running;
 
         public DataConverterProcessor(AppConfig config,
             DataRecordRepository recordsRepository,
@@ -26,56 +27,70 @@ namespace ZeroGallery.Shared.Services
 
         public void Run()
         {
-            Sheduller.RemindEvery(TimeSpan.FromSeconds(30), async () => await Collect());
+            Sheduller.RemindEvery(TimeSpan.FromSeconds(30), async () =>
+            {
+                if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return;
+                try { await Collect(); }
+                finally { Interlocked.Exchange(ref _running, 0); }
+            });
         }
 
         private async Task Collect()
         {
-            foreach (var record in _records.GetWaitingConvertRecords())
+            try
             {
-                try
+                foreach (var record in _records.GetWaitingConvertRecords())
                 {
-                    if (KnownImages.IsImage(record.Extension))
+                    try
                     {
-                        if (_config.convert_heic_to_jpg 
-                            || _config.convert_tiff_to_jpg
-                            || _config.convert_dng_to_jpg
-                            || _config.convert_cr2_to_jpg
-                            || _config.convert_nef_to_jpg
-                            || _config.convert_arw_to_jpg
-                            || _config.convert_orf_to_jpg)
+                        if (KnownImages.IsImage(record.Extension))
                         {
-                            await HandleConvertImage(record);
+                            if (_config.convert_heic_to_jpg
+                                || _config.convert_tiff_to_jpg
+                                || _config.convert_dng_to_jpg
+                                || _config.convert_cr2_to_jpg
+                                || _config.convert_nef_to_jpg
+                                || _config.convert_arw_to_jpg
+                                || _config.convert_orf_to_jpg
+                                || _config.convert_sr2_to_jpg
+                                || _config.convert_srf_to_jpg)
+                            {
+                                await HandleConvertImage(record);
+                            }
+                            else
+                            {
+                                record.ConvertStatus = (int)ConvertDataState.COMPLETED;
+                                _records.Update(record);
+                            }
+                        }
+                        else if (KnownVideos.IsVideo(record.Extension))
+                        {
+                            if (_config.convert_video_to_mp4)
+                            {
+                                await HandleConvertVideo(record);
+                            }
+                            else
+                            {
+                                record.ConvertStatus = (int)ConvertDataState.COMPLETED;
+                                _records.Update(record);
+                            }
                         }
                         else
                         {
+                            // При правильном процессе сюда вообще не должны попадать
                             record.ConvertStatus = (int)ConvertDataState.COMPLETED;
                             _records.Update(record);
                         }
                     }
-                    else if (KnownVideos.IsVideo(record.Extension))
+                    catch (Exception ex)
                     {
-                        if (_config.convert_video_to_mp4)
-                        {
-                            await HandleConvertVideo(record);
-                        }
-                        else
-                        {
-                            record.ConvertStatus = (int)ConvertDataState.COMPLETED;
-                            _records.Update(record);
-                        }
-                    }
-                    else
-                    {
-                        // При правильном процессе сюда вообще не должны попадать
-                        record.ConvertStatus = (int)ConvertDataState.COMPLETED;
-                        _records.Update(record);
+                        Log.Error(ex, $"[DataConverterProcessor.Collect] Fault proceed record '{record.Id}'");
                     }
                 }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, $"[DataConverterProcessor.Collect] Fault proceed record '{record.Id}'");
-                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[DataConverterProcessor.Collect] Outer failure");
             }
         }
 
@@ -105,10 +120,11 @@ namespace ZeroGallery.Shared.Services
                     converted = await _imageConverter.ConvertToJpgAsync(dataStream, record.Extension);
                 }
                 File.Delete(data.FilePath);
-                File.WriteAllBytes(data.FilePath, converted);
-                
+                await File.WriteAllBytesAsync(data.FilePath, converted);
+
                 record.Extension = ".jpg";
                 record.MimeType = "image/jpeg";
+                record.Size = converted.LongLength;
 
                 Log.Info($"[DataConverterProcessor.HandleConvertImage] Data converted from {ext} to .jpg. Record '{record.Id}'");
             }
@@ -139,6 +155,7 @@ namespace ZeroGallery.Shared.Services
                     File.Move(output, data.FilePath, true);
                     record.Extension = ".mp4";
                     record.MimeType = "video/mp4";
+                    record.Size = new FileInfo(data.FilePath).Length;
                     Log.Info($"[DataConverterProcessor.HandleConvertVideo] {ext} file converted to MP4. Record '{record.Id}'");
                 }
                 else

@@ -95,14 +95,8 @@ namespace ZeroGallery.Shared.Services
                 AdditionalCheck = buffer => CheckNefFormat(buffer)
             },
             
-            // Sony ARW - использует TIFF заголовок с проверкой
-            new FileSignature {
-                Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },
-                Offset = 0,
-                Extension = ".arw",
-                MimeType = "image/x-sony-arw",
-                AdditionalCheck = buffer => CheckArwFormat(buffer)
-            },
+            // Sony SR2 / SRF идут ПЕРЕД ARW, потому что у них проверки строже
+            // (требуют конкретных моделей DSC-R1 / DSC-F828), а ARW — generic fallback по строке "SONY".
 
             // Sony SR2 - использует TIFF заголовок с проверкой
             new FileSignature {
@@ -112,7 +106,7 @@ namespace ZeroGallery.Shared.Services
                 MimeType = "image/x-sony-sr2",
                 AdditionalCheck = buffer => CheckSr2Format(buffer)
             },
-            
+
             // Sony SRF - использует TIFF заголовок с проверкой
             new FileSignature {
                 Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },
@@ -120,6 +114,15 @@ namespace ZeroGallery.Shared.Services
                 Extension = ".srf",
                 MimeType = "image/x-sony-srf",
                 AdditionalCheck = buffer => CheckSrfFormat(buffer)
+            },
+
+            // Sony ARW - использует TIFF заголовок с проверкой
+            new FileSignature {
+                Signature = new byte[] { 0x49, 0x49, 0x2A, 0x00 },
+                Offset = 0,
+                Extension = ".arw",
+                MimeType = "image/x-sony-arw",
+                AdditionalCheck = buffer => CheckArwFormat(buffer)
             },
         
             // TIFF - Little Endian
@@ -136,8 +139,14 @@ namespace ZeroGallery.Shared.Services
         
             // SVG - XML declaration
             new FileSignature { Signature = new byte[] { 0x3C, 0x3F, 0x78, 0x6D, 0x6C, 0x20 }, Offset = 0, Extension = ".svg", MimeType = "image/svg+xml" },
+            // SVG - XML declaration with UTF-8 BOM
+            new FileSignature { Signature = new byte[] { 0x3C, 0x3F, 0x78, 0x6D, 0x6C, 0x20 }, Offset = 3, Extension = ".svg", MimeType = "image/svg+xml",
+                AdditionalCheck = buffer => buffer.Length >= 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF },
             // SVG - direct tag
             new FileSignature { Signature = new byte[] { 0x3C, 0x73, 0x76, 0x67, 0x20 }, Offset = 0, Extension = ".svg", MimeType = "image/svg+xml" },
+            // SVG - direct tag with UTF-8 BOM
+            new FileSignature { Signature = new byte[] { 0x3C, 0x73, 0x76, 0x67, 0x20 }, Offset = 3, Extension = ".svg", MimeType = "image/svg+xml",
+                AdditionalCheck = buffer => buffer.Length >= 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF },
         
             // HEIF/HEIC
             new FileSignature { Signature = new byte[] { 0x66, 0x74, 0x79, 0x70, 0x6D, 0x69, 0x66, 0x31 }, Offset = 4, Extension = ".heif", MimeType = "image/heif" },
@@ -205,14 +214,18 @@ namespace ZeroGallery.Shared.Services
         public static ImageTypeInfo GetDataTypeInfo(Stream stream)
         {
             if (stream == null || !stream.CanRead) return _unknown;
-            byte[] buffer = new byte[512];
+            byte[] buffer = new byte[8192];
             long originalPosition = stream.Position;
             stream.Position = 0;
             try
             {
-                int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                int bytesRead = ReadFully(stream, buffer);
                 if (bytesRead == 0)
                     return _unknown;
+                if (bytesRead < buffer.Length)
+                {
+                    Array.Resize(ref buffer, bytesRead);
+                }
 
                 foreach (var sig in signatures)
                 {
@@ -228,6 +241,18 @@ namespace ZeroGallery.Shared.Services
                 if (stream.CanSeek)
                     stream.Position = originalPosition;
             }
+        }
+
+        private static int ReadFully(Stream stream, byte[] buffer)
+        {
+            int total = 0;
+            while (total < buffer.Length)
+            {
+                int read = stream.Read(buffer, total, buffer.Length - total);
+                if (read <= 0) break;
+                total += read;
+            }
+            return total;
         }
 
         private static bool CheckSignature(byte[] buffer, int bufferLength, FileSignature signature)
@@ -264,14 +289,55 @@ namespace ZeroGallery.Shared.Services
 
         private static bool CheckDngFormat(byte[] buffer)
         {
-            // DNG файлы являются TIFF файлами с специфическими тегами Adobe
-            // Для полной проверки потребовалось бы парсить IFD структуру TIFF
-            // Здесь используем упрощённую проверку по содержимому
-            if (buffer.Length < 100) return false;
-
-            string bufferAsString = Encoding.ASCII.GetString(buffer, 0, Math.Min(buffer.Length, 512));
-            return bufferAsString.Contains("Adobe") || bufferAsString.Contains("DNG");
+            // DNG является TIFF-файлом, отличается наличием обязательного тега DNGVersion (0xC612) в IFD0.
+            // Парсим IFD0 и ищем DNG-специфичные теги — это надёжнее любой эвристики по подстрокам.
+            return TiffIfd0HasAnyTag(buffer, _dngTags);
         }
+
+        // DNG-специфичные теги (по спецификации Adobe DNG):
+        // 0xC612 DNGVersion (mandatory), 0xC613 DNGBackwardVersion, 0xC614 UniqueCameraModel,
+        // 0xC621 ColorMatrix1, 0xC622 ColorMatrix2.
+        private static readonly ushort[] _dngTags = new ushort[] { 0xC612, 0xC613, 0xC614, 0xC621, 0xC622 };
+
+        /// <summary>
+        /// Проверяет, содержит ли IFD0 (первая директория TIFF) хотя бы один из заданных тегов.
+        /// </summary>
+        private static bool TiffIfd0HasAnyTag(byte[] buffer, ushort[] tags)
+        {
+            if (buffer.Length < 8) return false;
+            bool littleEndian;
+            if (buffer[0] == 0x49 && buffer[1] == 0x49 && buffer[2] == 0x2A && buffer[3] == 0x00) littleEndian = true;
+            else if (buffer[0] == 0x4D && buffer[1] == 0x4D && buffer[2] == 0x00 && buffer[3] == 0x2A) littleEndian = false;
+            else return false;
+
+            long ifd0Offset = ReadUInt32(buffer, 4, littleEndian);
+            if (ifd0Offset < 8 || ifd0Offset + 2 > buffer.Length) return false;
+
+            int numEntries = ReadUInt16(buffer, (int)ifd0Offset, littleEndian);
+            long entriesEnd = ifd0Offset + 2 + (long)numEntries * 12;
+            if (entriesEnd > buffer.Length) return false; // IFD0 не уместился в прочитанный буфер
+
+            for (int i = 0; i < numEntries; i++)
+            {
+                int entryOffset = (int)ifd0Offset + 2 + i * 12;
+                ushort tag = (ushort)ReadUInt16(buffer, entryOffset, littleEndian);
+                for (int t = 0; t < tags.Length; t++)
+                {
+                    if (tag == tags[t]) return true;
+                }
+            }
+            return false;
+        }
+
+        private static int ReadUInt16(byte[] buffer, int offset, bool littleEndian) =>
+            littleEndian
+                ? buffer[offset] | (buffer[offset + 1] << 8)
+                : (buffer[offset] << 8) | buffer[offset + 1];
+
+        private static long ReadUInt32(byte[] buffer, int offset, bool littleEndian) =>
+            littleEndian
+                ? (uint)(buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24))
+                : (uint)((buffer[offset] << 24) | (buffer[offset + 1] << 16) | (buffer[offset + 2] << 8) | buffer[offset + 3]);
 
         private static bool CheckNefFormat(byte[] buffer)
         {

@@ -1,7 +1,6 @@
 ﻿using ImageMagick;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
-using System.Buffers;
 using ZeroLevel;
 
 namespace ZeroGallery.Shared.Services
@@ -120,23 +119,22 @@ namespace ZeroGallery.Shared.Services
         private async Task<byte[]> ConvertHeicWithMagick(Stream inputStream, int quality,
             CancellationToken cancellationToken)
         {
-            // Use ArrayPool for efficient memory management
-            var buffer = ArrayPool<byte>.Shared.Rent((int)inputStream.Length);
-            try
-            {
-                var bytesRead = await inputStream.ReadAsync(buffer.AsMemory(0, (int)inputStream.Length),
-                    cancellationToken);
+            var data = await ReadAllBytesAsync(inputStream, cancellationToken);
+            using var image = new MagickImage(data);
+            image.Format = MagickFormat.Jpeg;
+            image.Quality = (uint)quality;
+            return image.ToByteArray();
+        }
 
-                using var image = new MagickImage(buffer, 0, (uint)bytesRead);
-                image.Format = MagickFormat.Jpeg;
-                image.Quality = (uint)quality;
-
-                return image.ToByteArray();
-            }
-            finally
+        private static async Task<byte[]> ReadAllBytesAsync(Stream input, CancellationToken cancellationToken)
+        {
+            if (input is MemoryStream ms)
             {
-                ArrayPool<byte>.Shared.Return(buffer);
+                return ms.ToArray();
             }
+            using var buffer = new MemoryStream();
+            await input.CopyToAsync(buffer, cancellationToken);
+            return buffer.ToArray();
         }
 
         private async Task<byte[]> ConvertSvgWithSkia(Stream inputStream, int quality,
@@ -193,15 +191,11 @@ namespace ZeroGallery.Shared.Services
         private async Task<byte[]> ConvertRawWithMagick(Stream inputStream, int quality,
             CancellationToken cancellationToken)
         {
-            var buffer = ArrayPool<byte>.Shared.Rent((int)inputStream.Length);
+            var data = await ReadAllBytesAsync(inputStream, cancellationToken);
             try
             {
-                var bytesRead = await inputStream.ReadAsync(buffer.AsMemory(0, (int)inputStream.Length),
-                    cancellationToken);
-
-                // Используем базовые настройки, которые работают для всех RAW форматов
                 // ImageMagick автоматически определит тип RAW файла
-                using var image = new MagickImage(buffer, 0, (uint)bytesRead);
+                using var image = new MagickImage(data);
 
                 // Настройки обработки изображения
                 image.Format = MagickFormat.Jpeg;
@@ -246,10 +240,6 @@ namespace ZeroGallery.Shared.Services
                 throw new NotSupportedException(
                     $"RAW format processing requires additional ImageMagick delegates. " +
                     $"Ensure dcraw or LibRaw is installed. Original error: {ex.Message}", ex);
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
             }
         }
         #endregion

@@ -1,0 +1,24 @@
+[Unit]
+Description=ZeroGallery web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/app
+ExecStart=/home/app/ZeroGalleryApp
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=20
+SyslogIdentifier=zerogallery
+
+# Lightweight hardening that costs nothing in a single-purpose container.
+ProtectSystem=full
+PrivateTmp=true
+
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+Environment=ASPNETCORE_ENVIRONMENT=Production
+
+[Install]
+WantedBy=multi-user.target

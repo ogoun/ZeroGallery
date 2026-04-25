@@ -15,7 +15,8 @@ namespace ZeroGallery.Shared.Services
         private readonly IImageConverter _imageConverter;
         private readonly DataRecordRepository _records;
         private readonly DataStorage _storage;
-        
+        private int _running;
+
         public DataPreviewProcessor(DataRecordRepository recordsRepository, DataStorage storage)
         {
             _records = recordsRepository;
@@ -25,61 +26,70 @@ namespace ZeroGallery.Shared.Services
 
         public void Run()
         {
-            Sheduller.RemindEvery(TimeSpan.FromSeconds(30), async () => await Collect());
+            Sheduller.RemindEvery(TimeSpan.FromSeconds(30), async () =>
+            {
+                if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return;
+                try { await Collect(); }
+                finally { Interlocked.Exchange(ref _running, 0); }
+            });
         }
 
         private async Task Collect()
         {
-            foreach (var record in _records.GetWaitingPreviewRecords())
+            try
             {
-                try
+                foreach (var record in _records.GetWaitingPreviewRecords())
                 {
-                    if (KnownImages.IsImage(record.Extension))
+                    try
                     {
-                        await CreatePreviewForImage(record);
+                        if (KnownImages.IsImage(record.Extension))
+                        {
+                            await CreatePreviewForImage(record);
+                        }
+                        else if (KnownVideos.IsVideo(record.Extension))
+                        {
+                            await CreatePreviewForVideo(record);
+                        }
+                        else
+                        {
+                            record.PreviewStatus = (int)PreviewState.NO_PREVIEW;
+                            _records.Update(record);
+                        }
                     }
-                    else if (KnownVideos.IsVideo(record.Extension))
+                    catch (Exception ex)
                     {
-                        await CreatePreviewForVideo(record);
-                    }
-                    else
-                    {
-                        record.PreviewStatus = (int)PreviewState.NO_PREVIEW;
-                        _records.Update(record);
+                        Log.Error(ex, $"[DataPreviewProcessor.Collect] Fault create preview for record '{record.Id}'");
                     }
                 }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, $"[DataPreviewProcessor.Collect] Fault create preview for record '{record.Id}'");
-                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[DataPreviewProcessor.Collect] Outer failure");
             }
         }
 
         private async Task CreatePreviewForImage(DataRecord record)
         {
-            byte[] jpgData;
-
             var data = _storage.GetData(record);
             var thumbFilePath = _storage.GetPreviewPath(record);
 
-            using (var dataStream = File.OpenRead(data.FilePath))
+            Image image;
+            if (record.Extension != ImageTypeInfo.DEFAULT_IMAGE_EXTENSION)
             {
-                if (record.Extension != ImageTypeInfo.DEFAULT_IMAGE_EXTENSION)
+                byte[] jpgData;
+                using (var dataStream = File.OpenRead(data.FilePath))
                 {
                     jpgData = await _imageConverter.ConvertToJpgAsync(dataStream, record.Extension);
                 }
-                else
-                {
-                    using (var ms = new MemoryStream())
-                    {
-                        StreamHelper.Transfer(dataStream, ms).Wait();
-                        ms.Position = 0;
-                        jpgData = ms.ToArray();
-                    }
-                }
+                image = Image.Load(jpgData);
+            }
+            else
+            {
+                using var dataStream = File.OpenRead(data.FilePath);
+                image = await Image.LoadAsync(dataStream);
             }
 
-            using (var image = Image.Load(jpgData))
+            using (image)
             {
                 if (image.Width > MAX_PREVIEW_SIDE_SIZE ||
                     image.Height > MAX_PREVIEW_SIDE_SIZE)
@@ -92,7 +102,7 @@ namespace ZeroGallery.Shared.Services
 
                     image.Mutate(i => i.Resize(w, h));
                 }
-                image.SaveAsJpeg(thumbFilePath);
+                await image.SaveAsJpegAsync(thumbFilePath);
             }
 
             record.PreviewStatus = (int)PreviewState.HAS_PREVIEW;
@@ -106,28 +116,32 @@ namespace ZeroGallery.Shared.Services
                 return;
 
             var data = _storage.GetData(record);
+            if (data == null) return;
+
             var dataFilePath = data.FilePath;
             var thumbFilePath = _storage.GetPreviewPath(record);
 
-            // Preview к видео
-            var tempFileSource = dataFilePath + ".mp4"; // т.к. ffmpeg не осиливает файлы без расширения
-            var tempFileOutput = thumbFilePath + ".jpg";
+            // ffmpeg требует расширение у входного файла, поэтому работаем с копией
+            var tempFileSource = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".mp4");
+            var tempFileOutput = tempFileSource + ".jpg";
             try
             {
-                File.Move(dataFilePath, tempFileSource, true);
+                File.Copy(dataFilePath, tempFileSource, true);
                 if (await VideoThumbnailService.GenerateThumbnailAsync(tempFileSource, tempFileOutput))
                 {
                     File.Move(tempFileOutput, thumbFilePath, true);
+                    record.PreviewStatus = (int)PreviewState.HAS_PREVIEW;
                 }
-                record.PreviewStatus = (int)PreviewState.HAS_PREVIEW;
+                else
+                {
+                    record.PreviewStatus = (int)PreviewState.NO_PREVIEW;
+                }
                 _records.Update(record);
             }
             finally
             {
-                if (!File.Exists(dataFilePath) && File.Exists(tempFileSource))
-                {
-                    File.Move(tempFileSource, dataFilePath, true);
-                }
+                try { if (File.Exists(tempFileSource)) File.Delete(tempFileSource); } catch { }
+                try { if (File.Exists(tempFileOutput)) File.Delete(tempFileOutput); } catch { }
             }
         }
 

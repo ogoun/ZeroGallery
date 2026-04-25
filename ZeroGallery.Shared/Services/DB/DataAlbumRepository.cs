@@ -15,8 +15,8 @@ namespace ZeroGallery.Shared.Services.DB
         {
             lock (_locker)
             {
-                var r = _db.Insert(record);
-                return _table.MaxBy(r => r.Id)!;
+                _db.Insert(record);
+                return record;
             }
         }
 

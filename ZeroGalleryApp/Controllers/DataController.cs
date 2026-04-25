@@ -119,7 +119,7 @@ namespace ZeroGalleryApp.Controllers
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "[ImageController.GetPreviewImage]");
+                Log.Error(ex, "[DataController.GetPreviewImage]");
             }
             return GetBlankFileForDataType(DataType.Binary);
         }
@@ -134,23 +134,28 @@ namespace ZeroGalleryApp.Controllers
         [Produces(MediaTypeNames.Application.Octet)]
         public async Task<IActionResult> GetData([FromRoute] long id)
         {
+            string albumToken;
             try
             {
-                if (CanViewImages(_storage.GetItemAlbumToken(id)) == false)
-                {
-                    return Unauthorized();
-                }
-                var info = _storage.GetData(id);
-                if (info == null)
-                {
-                    Log.Warning($"[DataController.GetData] Not found data {id}");
-                    return NotFound();
-                }
+                albumToken = _storage.GetItemAlbumToken(id);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, $"[DataController.GetData] Record '{id}' not found");
+                return NotFound();
+            }
 
-                // Check if file exists
-                if (!System.IO.File.Exists(info.FilePath))
+            if (CanViewImages(albumToken) == false)
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                var info = _storage.GetData(id);
+                if (info == null || !System.IO.File.Exists(info.FilePath))
                 {
-                    Log.Warning($"[DataController.GetData] File not found on disk: {info.FilePath}");
+                    Log.Warning($"[DataController.GetData] Data file not found for id {id}");
                     return NotFound();
                 }
 
@@ -171,7 +176,7 @@ namespace ZeroGalleryApp.Controllers
             catch (Exception ex)
             {
                 Error(ex, $"[DataController.GetData] Id: {id}");
-                return BadRequest(ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, ex.Message);
             }
         }
 
@@ -187,12 +192,12 @@ namespace ZeroGalleryApp.Controllers
             var contentLength = end - start + 1;
 
             Response.StatusCode = 206; // Partial Content
-            Response.Headers.Add("Content-Range", $"bytes {start}-{end}/{fileLength}");
-            Response.Headers.Add("Accept-Ranges", "bytes");
-            Response.Headers.Add("Content-Length", contentLength.ToString());
+            Response.Headers.Append("Content-Range", $"bytes {start}-{end}/{fileLength}");
+            Response.Headers.Append("Accept-Ranges", "bytes");
+            Response.Headers.Append("Content-Length", contentLength.ToString());
             Response.ContentType = contentType;
 
-            var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+            await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
             stream.Seek(start, SeekOrigin.Begin);
 
             var buffer = new byte[4096];
@@ -210,7 +215,6 @@ namespace ZeroGalleryApp.Controllers
                 bytesRemaining -= bytesRead;
             }
 
-            stream.Dispose();
             return new EmptyResult();
         }
 
@@ -309,16 +313,22 @@ namespace ZeroGalleryApp.Controllers
                 }
                 else
                 {
-                    var ids = new long[files.Count];
-                    int idx_index = 0;
+                    var successIds = new List<long>(files.Count);
                     Log.Debug($"[DataController.Upload] Receive {files.Count} files to upload.");
                     foreach (var file in files)
                     {
                         var name = file.FileName;
-                        var record = await _storage.WriteData(name, string.Empty, string.Empty, albumId, file.OpenReadStream());
-                        ids[idx_index++] = record.Id;
+                        try
+                        {
+                            var record = await _storage.WriteData(name, string.Empty, string.Empty, albumId, file.OpenReadStream());
+                            successIds.Add(record.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            Error(ex, $"[DataController.Upload] Failed to upload file '{name}' to album '{albumId}'");
+                        }
                     }
-                    return Ok(ids);
+                    return Ok(successIds);
                 }
             }
             catch (Exception ex)
@@ -333,7 +343,18 @@ namespace ZeroGalleryApp.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public IActionResult DeleteData([FromRoute] long id)
         {
-            if (CanRemoveItem(_storage.GetItemAlbumToken(id)))
+            string albumToken;
+            try
+            {
+                albumToken = _storage.GetItemAlbumToken(id);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, $"[DataController.DeleteData] Record '{id}' not found");
+                return NotFound();
+            }
+
+            if (CanRemoveItem(albumToken))
             {
                 _storage.RemoveRecord(id, HasAdminAccess());
                 return Ok();
@@ -346,7 +367,18 @@ namespace ZeroGalleryApp.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public IActionResult DeleteAlbum([FromRoute] long id)
         {
-            if (CanRemoveAlbum(_storage.GetAlbumToken(id)))
+            string albumToken;
+            try
+            {
+                albumToken = _storage.GetAlbumToken(id);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, $"[DataController.DeleteAlbum] Album '{id}' not found");
+                return NotFound();
+            }
+
+            if (CanRemoveAlbum(albumToken))
             {
                 _storage.RemoveAlbum(id, HasAdminAccess());
                 return Ok();
@@ -358,7 +390,7 @@ namespace ZeroGalleryApp.Controllers
         [HttpDelete("all")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public IActionResult DeleteAll([FromRoute] long id)
+        public IActionResult DeleteAll()
         {
             if (HasAdminAccess())
             {

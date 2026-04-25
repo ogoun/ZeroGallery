@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet test *)",
+      "Bash(python3 -c ' *)",
+      "Bash(dotnet build *)"
+    ]
+  }
+}

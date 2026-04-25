@@ -35,75 +35,96 @@ namespace ZeroGallery.Shared.Services
 
         private void CollectRemovedRecords()
         {
-            foreach (var record in _records.GetRemovingRecords())
+            try
             {
-                try
+                foreach (var record in _records.GetRemovingRecords())
                 {
-                    if (HandleRecord(record))
+                    try
                     {
-                        Log.Info($"[Scavenger.Collect] Record '{record.Id}' removed");
+                        if (HandleRecord(record))
+                        {
+                            Log.Info($"[Scavenger.Collect] Record '{record.Id}' removed");
+                        }
+                        else
+                        {
+                            Log.Warning($"[Scavenger.Collect] Delete record '{record.Id}' method return 0 as count of deleted records.");
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        Log.Warning($"[Scavenger.Collect] Delete record '{record.Id}' method return 0 as count of deleted records.");
+                        Log.Error(ex, $"[Scavenger.Collect] Fault remove files for record '{record.Id}'");
                     }
                 }
-                catch (Exception ex)
+                foreach (var album in _albums.GetRemovingRecords())
                 {
-                    Log.Error(ex, $"[Scavenger.Collect] Fault remove files for record '{record.Id}'");
+                    try
+                    {
+                        if (_records.GetAlbumFilesCount(album.Id) == 0)
+                        {
+                            if (_albums.Delete(a => a.Id == album.Id) > 0)
+                            {
+                                Log.Info($"[Scavenger.Collect] Album '{album.Id}' removed");
+                            }
+                            else
+                            {
+                                Log.Warning($"[Scavenger.Collect] Delete album '{album.Id}' method return 0 as count of deleted records.");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, $"[Scavenger.Collect] Fault remove album '{album.Id}'");
+                    }
                 }
             }
-            foreach (var album in _albums.GetRemovingRecords())
+            catch (Exception ex)
             {
-                if (_records.GetAlbumFilesCount(album.Id) == 0)
-                {
-                    if (_albums.Delete(a => a.Id == album.Id) > 0)
-                    {
-                        Log.Info($"[Scavenger.Collect] Album '{album.Id}' removed");
-                    }
-                    else
-                    {
-                        Log.Warning($"[Scavenger.Collect] Delete album '{album.Id}' method return 0 as count of deleted records.");
-                    }
-                }
+                Log.Error(ex, "[Scavenger.CollectRemovedRecords] Outer failure");
             }
         }
 
         private void CollectMissedFilesRecords()
         {
-            foreach (var record in _records.SelectBy(r => r.InRemoving == false))
+            try
             {
-                try
+                foreach (var record in _records.SelectBy(r => r.InRemoving == false))
                 {
-                    var dataFile = _storage.GetData(record);
-                    if (File.Exists(dataFile.FilePath) == false)
+                    try
                     {
-                        if (record.PreviewStatus == (int)PreviewState.HAS_PREVIEW)
+                        var dataFile = _storage.GetData(record);
+                        if (dataFile == null || File.Exists(dataFile.FilePath) == false)
                         {
-                            var previewFilePath = _storage.GetPreviewPath(record);
-                            if (File.Exists(previewFilePath))
+                            if (record.PreviewStatus == (int)PreviewState.HAS_PREVIEW)
                             {
-                                File.Delete(previewFilePath);
+                                var previewFilePath = _storage.GetPreviewPath(record);
+                                if (File.Exists(previewFilePath))
+                                {
+                                    File.Delete(previewFilePath);
+                                }
+                            }
+                            _records.Delete(r => r.Id == record.Id);
+                            Log.Warning($"[Scavenger] Found record without data file. Record '{record.Id}' removed. ({record.Name})");
+                        }
+                        else if (record.PreviewStatus == (int)PreviewState.HAS_PREVIEW)
+                        {
+                            var previewFile = _storage.GetPreview(record);
+                            if (previewFile == null || File.Exists(previewFile.FilePath) == false)
+                            {
+                                record.PreviewStatus = (int)PreviewState.WAITING;
+                                _records.Update(record);
+                                Log.Warning($"[Scavenger] Found record without preview file. Recreate preview for record '{record.Id}'. ({record.Name})");
                             }
                         }
-                        _records.Delete(r=>r.Id == record.Id);
-                        Log.Warning($"[Scavenger] Found record without data file. Record '{record.Id}' removed. ({record.Name})");
                     }
-                    else if (record.PreviewStatus == (int)PreviewState.HAS_PREVIEW)
-                    {                        
-                        var previewFile = _storage.GetPreview(record);
-                        if (File.Exists(previewFile.FilePath) == false)
-                        {
-                            record.PreviewStatus = (int)PreviewState.WAITING;
-                            _records.Update(record);
-                            Log.Warning($"[Scavenger] Found record without preview file. Recreate preview for record '{record.Id}'. ({record.Name})");
-                        }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, $"[Scavenger.CollectMissedFilesRecords] Fault check files for record '{record.Id}'");
                     }
                 }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, $"[Scavenger.CollectMissedFilesRecords] Fault check files for record '{record.Id}'");
-                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[Scavenger.CollectMissedFilesRecords] Outer failure");
             }
         }
 
@@ -111,11 +132,12 @@ namespace ZeroGallery.Shared.Services
         {
             var dataFile = _storage.GetData(record);
             var previewFile = _storage.GetPreview(record);
-            if (File.Exists(dataFile.FilePath))
+
+            if (dataFile != null && File.Exists(dataFile.FilePath))
             {
                 File.Delete(dataFile.FilePath);
             }
-            if (File.Exists(previewFile.FilePath))
+            if (previewFile != null && !string.IsNullOrEmpty(previewFile.FilePath) && File.Exists(previewFile.FilePath))
             {
                 File.Delete(previewFile.FilePath);
             }

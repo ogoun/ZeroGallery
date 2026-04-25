@@ -28,7 +28,7 @@ namespace ZeroGalleryApp.Controllers
         private bool IsFullAccess() => _existMasterToken == false && _existUploadToken == false;
         public bool HasAdminAccess() => _existMasterToken && OperationContext.UploadToken!.IsEqual(_masterToken);
         private bool CanUpload() => _existUploadToken && OperationContext.UploadToken!.IsEqual(_uploadToken);
-        private bool HasAlbumAccess(string token) => _existUploadToken && OperationContext.AccessToken!.IsEqual(token);
+        private bool HasAlbumAccess(string token) => !string.IsNullOrWhiteSpace(token) && OperationContext.AccessToken!.IsEqual(token);
 
         protected void Error(Exception ex, string message)
         {

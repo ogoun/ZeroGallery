@@ -1,7 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Controllers;
-using System.Net;
-using ZeroGallery.Shared.Models;
-using ZeroLevel;
+﻿using ZeroGallery.Shared.Models;
 using ZeroLevel.Services.Utils;
 
 namespace ZeroGalleryApp
@@ -27,20 +24,13 @@ namespace ZeroGalleryApp
 
         public async Task Invoke(HttpContext context)
         {
-            await ReadDataFromContext(context);
-            try
-            {
-                await _next(context);
-            }
-            catch (Exception ex)
-            {
-                await HandleExceptionAsync(context, ex);
-            }
+            ReadDataFromContext(context);
+            await _next(context);
         }
 
-        private async Task ReadDataFromContext(HttpContext context)
+        private static void ReadDataFromContext(HttpContext context)
         {
-            var uploadToken = (context?.Request?.Headers?.ContainsKey(UPLOAD_TOKEN_NAME) ?? false) 
+            var uploadToken = (context?.Request?.Headers?.ContainsKey(UPLOAD_TOKEN_NAME) ?? false)
                 ? context.Request.Headers[UPLOAD_TOKEN_NAME].FirstOrDefault()
                 : string.Empty;
 
@@ -50,29 +40,8 @@ namespace ZeroGalleryApp
 
             var opContext = new OperationContext(Timestamp.UtcNow);
             opContext.SetTokens(accessToken, uploadToken);
-            
-            context.Items["op_context"] = opContext;
-        }
 
-        private static async Task HandleExceptionAsync(HttpContext context, Exception ex)
-        {
-            var controllerActionDescriptor = context?.GetEndpoint()?.Metadata?.GetMetadata<ControllerActionDescriptor>();
-            var controllerName = controllerActionDescriptor?.ControllerName ?? string.Empty;
-            var actionName = controllerActionDescriptor?.ActionName ?? string.Empty;
-
-            Log.Error(ex, $"[{controllerName}.{actionName}]");
-
-            if (context != null)
-            {
-                context.Response.StatusCode = ex switch
-                {
-                    KeyNotFoundException or FileNotFoundException => (int)HttpStatusCode.NotFound,
-                    UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
-                    _ => (int)HttpStatusCode.BadRequest,
-                };
-
-                await context.Response.WriteAsync(ex.Message ?? "Error");
-            }
+            context!.Items["op_context"] = opContext;
         }
     }
 }

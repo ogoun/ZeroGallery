@@ -93,7 +93,7 @@ namespace ZeroGallery.Shared.Models.DB
         public bool Equals(DataRecord? other)
         {
             if (other == null) return false;
-            if (ReferenceEquals(null, other)) return true;
+            if (ReferenceEquals(this, other)) return true;
             if (Id != other.Id) return false;
             if (AlbumId != other.AlbumId) return false;
             if (Size != other.Size) return false;
